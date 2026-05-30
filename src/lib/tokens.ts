@@ -1,19 +1,19 @@
 export const C = {
   cream: '#fdfcfb',
   creamDark: '#ede8e0',
-  ink: '#2a2520',
-  inkLight: '#4a4340',
+  ink: '#1e293b',
+  inkLight: '#475569',
   sage: '#6B8F71',
   sageDark: '#4a6b50',
   sagePale: '#e8f0e9',
   sageLight: '#a8c0ab',
-  stone: '#8a8480',
-  muted: '#8a8078',
-  mutedLight: '#b0a8a0',
+  stone: '#94a3b8',
+  muted: '#64748b',
+  mutedLight: '#cbd5e1',
   white: '#ffffff',
-  warn: '#b08a4a',
+  warn: '#d97706',
   success: '#5a8a60',
-  error: '#8a4a4a',
+  error: '#dc2626',
 }
 
 export const S = {
@@ -21,7 +21,7 @@ export const S = {
     background: C.white,
     borderRadius: 16,
     border: `1px solid ${C.creamDark}`,
-    boxShadow: '0 1px 8px rgba(42,37,32,0.06)',
+    boxShadow: '0 1px 8px rgba(30,41,59,0.06)',
   },
   input: {
     width: '100%' as const,

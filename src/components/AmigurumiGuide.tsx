@@ -141,7 +141,7 @@ export function AmigurumiGuide({
           onClick={() => onUpdateLine(currentLine + 1)}
           style={{ ...S.btnPrimary, width: '100%', padding: '14px', fontSize: 15 }}
         >
-          Linha {currentLine + 1} concluida
+          Linha {currentLine + 1} concluída
         </button>
       ) : (
         <div style={{
@@ -150,14 +150,14 @@ export function AmigurumiGuide({
           border: `1px solid ${C.success}30`,
         }}>
           <div style={{ fontSize: 20, color: C.success, fontWeight: 600, marginBottom: 4 }}>
-            Secao concluida!
+            Seção concluída!
           </div>
           {sectionIdx < sections.length - 1 && (
             <button
               onClick={() => { setSectionIdx(sectionIdx + 1); onUpdateLine(0) }}
               style={{ ...S.btnPrimary, marginTop: 12, background: C.success }}
             >
-              Proxima secao &rarr;
+              Próxima seção &rarr;
             </button>
           )}
         </div>

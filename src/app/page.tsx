@@ -39,6 +39,18 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" style={{ background: C.cream, paddingBottom: 80 }}>
+      {/* Desktop top nav */}
+      <div className="hidden md:flex items-center justify-between" style={{
+        background: C.white, borderBottom: `1px solid ${C.creamDark}`, padding: '12px 24px',
+        position: 'sticky', top: 0, zIndex: 100,
+      }}>
+        <a href="/" style={{ fontWeight: 700, fontSize: 16, color: C.ink, textDecoration: 'none' }}>Ateliê Crochê</a>
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+          <a href="/" style={{ fontSize: 13, color: C.muted, textDecoration: 'none', fontWeight: 500 }}>Início</a>
+          <a href="/projetos" style={{ fontSize: 13, color: C.muted, textDecoration: 'none', fontWeight: 500 }}>Projetos</a>
+          <a href="/projetos/novo" style={{ ...S.btnPrimary, padding: '7px 16px', fontSize: 12, textDecoration: 'none' }}>Novo projeto</a>
+        </div>
+      </div>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div style={{
@@ -57,7 +69,7 @@ export default function Home() {
               </h1>
             </div>
             <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
-              {[[projects.length, 'Total'], [inProgress.length, 'Andamento'], [completed.length, 'Concluidos']].map(([n, l]) => (
+              {[[projects.length, 'Total'], [inProgress.length, 'Andamento'], [completed.length, 'Concluídos']].map(([n, l]) => (
                 <div key={l}>
                   <div style={{ color: C.white, fontSize: 26, fontWeight: 600 }}>{n}</div>
                   <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 1 }}>{l}</div>
@@ -132,15 +144,15 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Bottom Nav */}
-      <div style={{
+      {/* Bottom Nav — mobile only */}
+      <div className="md:hidden" style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
         background: 'rgba(253,252,251,0.93)', backdropFilter: 'blur(12px)',
         borderTop: `1px solid ${C.creamDark}`, display: 'flex', justifyContent: 'center', padding: '8px 0 20px',
       }}>
-        <div className="max-w-4xl mx-auto flex items-center justify-around" style={{ width: '100%', maxWidth: 540 }}>
+        <div className="flex items-center justify-around" style={{ width: '100%', maxWidth: 400 }}>
           {[
-            { s: 'home', icon: '\u2302', label: 'Inicio' },
+            { s: 'home', icon: '\u2302', label: 'Início' },
             { s: 'projects', icon: '\u25EB', label: 'Projetos' },
             { s: 'create', icon: '+', label: 'Criar', special: true },
           ].map(item => (

@@ -48,6 +48,18 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen" style={{ background: C.cream, paddingBottom: 80 }}>
+      {/* Desktop top nav */}
+      <div className="hidden md:flex items-center justify-between" style={{
+        background: C.white, borderBottom: `1px solid ${C.creamDark}`, padding: '12px 24px',
+        position: 'sticky', top: 0, zIndex: 100,
+      }}>
+        <a href="/" style={{ fontWeight: 700, fontSize: 16, color: C.ink, textDecoration: 'none' }}>Ateliê Crochê</a>
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+          <a href="/" style={{ fontSize: 13, color: C.muted, textDecoration: 'none', fontWeight: 500 }}>Início</a>
+          <a href="/projetos" style={{ fontSize: 13, color: C.muted, textDecoration: 'none', fontWeight: 500 }}>Projetos</a>
+          <a href="/projetos/novo" style={{ ...S.btnPrimary, padding: '7px 16px', fontSize: 12, textDecoration: 'none' }}>Novo projeto</a>
+        </div>
+      </div>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div style={{ background: C.ink, padding: '52px 24px 24px' }}>
@@ -79,7 +91,7 @@ export default function ProjectsPage() {
               }}>{l}</button>
             ))}
             <div style={{ width: 1, background: C.creamDark, margin: '0 4px' }} />
-            {[['all', 'Todos'], ['in_progress', 'Andamento'], ['completed', 'Concluidos'], ['not_started', 'Nao iniciados']].map(([v, l]) => (
+            {[['all', 'Todos'], ['in_progress', 'Andamento'], ['completed', 'Concluídos'], ['not_started', 'Não iniciados']].map(([v, l]) => (
               <button key={v} onClick={() => setFilterStatus(v)} style={{
                 padding: '7px 16px', borderRadius: 20, whiteSpace: 'nowrap', border: `1.5px solid ${filterStatus === v ? C.sageDark : C.creamDark}`,
                 background: filterStatus === v ? C.ink : C.white, color: filterStatus === v ? C.white : C.muted,
@@ -106,11 +118,11 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Bottom Nav */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(253,252,251,0.93)', backdropFilter: 'blur(12px)', borderTop: `1px solid ${C.creamDark}`, display: 'flex', justifyContent: 'center', padding: '8px 0 20px' }}>
-        <div className="flex items-center justify-around" style={{ width: '100%', maxWidth: 540 }}>
+      {/* Bottom Nav — mobile only */}
+      <div className="md:hidden" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(253,252,251,0.93)', backdropFilter: 'blur(12px)', borderTop: `1px solid ${C.creamDark}`, display: 'flex', justifyContent: 'center', padding: '8px 0 20px' }}>
+        <div className="flex items-center justify-around" style={{ width: '100%', maxWidth: 400 }}>
           {[
-            { s: 'home', icon: '\u2302', label: 'Inicio' },
+            { s: 'home', icon: '\u2302', label: 'Início' },
             { s: 'projects', icon: '\u25EB', label: 'Projetos' },
             { s: 'create', icon: '+', label: 'Criar', special: true },
           ].map(item => (

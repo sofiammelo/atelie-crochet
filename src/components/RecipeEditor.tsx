@@ -49,7 +49,7 @@ export function RecipeEditor({
   const addSection = () => {
     setSections(s => [...s, {
       id: Date.now().toString(),
-      name: 'Nova secao',
+      name: 'Nova seção',
       rows: [],
     }])
   }

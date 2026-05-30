@@ -22,6 +22,7 @@ export default function NewProjectPage() {
 
   // Tapestry - convert
   const [convertFile, setConvertFile] = useState<File | null>(null)
+  const [maxSize, setMaxSize] = useState(40)
   const [converting, setConverting] = useState(false)
   const [convertedResult, setConvertedResult] = useState<{ pixels: string[][]; width: number; height: number } | null>(null)
 
@@ -30,10 +31,11 @@ export default function NewProjectPage() {
   const [createHeight, setCreateHeight] = useState(10)
   const [pixelGrid, setPixelGrid] = useState<string[][]>([])
   const [currentColor, setCurrentColor] = useState('#6B8F71')
+  const [customColor, setCustomColor] = useState('#6B8F71')
 
   const [submitting, setSubmitting] = useState(false)
 
-  const colors = ['#6B8F71', '#4a6b50', '#8aab90', '#2a2520', '#4a4340', '#8a8480', '#b08a4a', '#8a4a4a', '#4a6b8a', '#8a6b4a', '#fdfcfb', '#c4bdb4']
+  const colors = ['#6B8F71', '#4a6b50', '#8aab90', '#1e293b', '#475569', '#94a3b8', '#d97706', '#dc2626', '#4a6b8a', '#8a6b4a', '#fdfcfb', '#cbd5e1']
 
   // ── PDF ──
   async function handlePdfSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -69,7 +71,7 @@ export default function NewProjectPage() {
     try {
       const formData = new FormData()
       formData.append('image', file)
-      formData.append('maxSize', '40')
+      formData.append('maxSize', String(maxSize))
       const res = await fetch('/api/convert-image', { method: 'POST', body: formData })
       if (res.ok) {
         const data = await res.json()
@@ -85,7 +87,7 @@ export default function NewProjectPage() {
     try {
       const formData = new FormData()
       formData.append('image', convertFile)
-      formData.append('maxSize', '40')
+      formData.append('maxSize', String(maxSize))
       const res = await fetch('/api/convert-image', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Falha ao converter')
       const data = await res.json()
@@ -137,7 +139,6 @@ export default function NewProjectPage() {
       }
 
       if (type === 'tapestry') {
-        // Priority: pixelResult > convertedResult > pixelGrid > pixelFile
         if (pixelResult) {
           data.pixelData = JSON.stringify(pixelResult.pixels)
           data.pixelWidth = pixelResult.width
@@ -234,13 +235,13 @@ export default function NewProjectPage() {
                   <>
                     <div style={{ fontWeight: 600, fontSize: 14, color: C.sageDark }}>{pdfFile.name}</div>
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                      {pdfText ? `${pdfText.split('\n').length} linhas extraidas` : 'Nenhum texto encontrado'}
+                      {pdfText ? `${pdfText.split('\n').length} linhas extraídas` : 'Nenhum texto encontrado'}
                     </div>
                   </>
                 ) : (
                   <>
                     <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>Upload de PDF</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Extraimos o texto automaticamente</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Extraímos o texto automaticamente</div>
                   </>
                 )}
               </div>
@@ -262,7 +263,7 @@ export default function NewProjectPage() {
         {/* ── TAPESTRY ── */}
         {type === 'tapestry' && (
           <div style={{ marginBottom: 24 }}>
-            <label style={S.label}>Configuracao do Jacquard</label>
+            <label style={S.label}>Configuração do Jacquard</label>
             <p style={{ fontSize: 13, color: C.muted, margin: '0 0 12px' }}>
               Escolha como criar a grade do seu Tapestry:
             </p>
@@ -273,7 +274,7 @@ export default function NewProjectPage() {
                 <span style={{ fontSize: 20 }}>&#x1F5BC;</span>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>Upload de imagem pixelada</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>Envie uma imagem que ja esta em pixels</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>Envie uma imagem que já está em pixels</div>
                 </div>
               </div>
               {pixelConverting ? (
@@ -301,7 +302,7 @@ export default function NewProjectPage() {
                   <div style={{ fontSize: 12, color: C.muted }}>Qualquer foto — convertemos em pixels</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                 <label style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: C.cream, border: `1px solid ${C.creamDark}` }}>
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setConvertFile(e.target.files?.[0] || null)} />
                   <span style={{ fontSize: 13, color: convertFile ? C.sageDark : C.muted }}>{convertFile ? convertFile.name : 'Selecionar'}</span>
@@ -309,6 +310,27 @@ export default function NewProjectPage() {
                 <button onClick={handleConvert} disabled={!convertFile || converting} style={{ ...S.btnPrimary, padding: '8px 16px', opacity: !convertFile || converting ? 0.5 : 1 }}>
                   {converting ? '...' : 'Converter'}
                 </button>
+              </div>
+              {/* Detail level */}
+              <div style={{ marginBottom: 0 }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Nível de detalhe:</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[
+                    { v: 20, l: 'Simples' },
+                    { v: 40, l: 'Detalhado' },
+                    { v: 60, l: 'Muito detalhado' },
+                  ].map(({ v, l }) => (
+                    <button key={v} onClick={() => setMaxSize(v)} style={{
+                      flex: 1, padding: '7px 4px', borderRadius: 8, cursor: 'pointer',
+                      border: `1.5px solid ${maxSize === v ? C.sage : C.creamDark}`,
+                      background: maxSize === v ? C.sagePale : C.white,
+                      color: maxSize === v ? C.sageDark : C.muted,
+                      fontSize: 11, fontWeight: 600,
+                    }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
               </div>
               {convertedResult && (
                 <div style={{ marginTop: 10, fontSize: 13, color: C.success, fontWeight: 600 }}>
@@ -323,7 +345,7 @@ export default function NewProjectPage() {
                 <span style={{ fontSize: 20 }}>&#x270F;&#xFE0F;</span>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>Criar pixel art</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>Desenhe sua propria grade</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>Desenhe sua própria grade</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
@@ -339,15 +361,25 @@ export default function NewProjectPage() {
 
               {pixelGrid.length > 0 && (
                 <>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, alignItems: 'center' }}>
                     {colors.map(c => (
-                      <div key={c} onClick={() => setCurrentColor(c)} style={{
+                      <div key={c} onClick={() => { setCurrentColor(c); setCustomColor(c) }} style={{
                         width: 24, height: 24, borderRadius: 4, background: c, cursor: 'pointer',
                         border: `2px solid ${currentColor === c ? C.ink : C.creamDark}`,
                         transform: currentColor === c ? 'scale(1.15)' : 'scale(1)',
                         transition: 'transform 0.1s',
                       }} />
                     ))}
+                    <label style={{
+                      width: 24, height: 24, borderRadius: 4, cursor: 'pointer',
+                      border: `2px dashed ${C.mutedLight}`, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      background: customColor,
+                    }}>
+                      <input type="color" value={customColor} onChange={e => { setCustomColor(e.target.value); setCurrentColor(e.target.value) }}
+                        style={{ width: 0, height: 0, border: 'none', padding: 0, opacity: 0, position: 'absolute' }} />
+                      <span style={{ fontSize: 10, color: '#fff', textShadow: '0 0 2px rgba(0,0,0,0.5)' }}>+</span>
+                    </label>
                   </div>
                   <div className="overflow-auto max-h-60" style={{ border: `1px solid ${C.creamDark}`, borderRadius: 10, padding: 8, background: C.white }}>
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${createWidth}, 18px)`, gap: '1px' }}>

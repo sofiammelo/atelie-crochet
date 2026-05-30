@@ -12,8 +12,13 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // pdf-parse v2 exports PDFParse class
-    const { PDFParse } = await import('pdf-parse')
+    // pdf-parse v2: CJS exports { PDFParse }, ESM exports default { PDFParse }
+    const mod = await import('pdf-parse')
+    const PDFParse = (mod as any).default?.PDFParse || (mod as any).PDFParse
+    if (!PDFParse) {
+      return NextResponse.json({ error: 'Módulo PDF não encontrado' }, { status: 500 })
+    }
+
     const parser = new PDFParse({ data: new Uint8Array(buffer) })
     const result = await parser.getText()
 

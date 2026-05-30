@@ -100,7 +100,7 @@ export default function ProjectDetailPage() {
     { id: 'guide', label: 'Guiar', icon: '\u25B6' },
     { id: 'recipe', label: project?.type === 'amigurumi' ? 'Receita' : 'Grade', icon: '\uD83D\uDCCB' },
     { id: 'timer', label: 'Tempo', icon: '\u23F1' },
-    { id: 'settings', label: 'Opcoes', icon: '\u2699' },
+    { id: 'settings', label: 'Opções', icon: '\u2699' },
   ]
 
   if (loading) return (
@@ -112,7 +112,7 @@ export default function ProjectDetailPage() {
   if (!project) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: C.cream }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 14, color: C.muted, marginBottom: 12 }}>Projeto nao encontrado</div>
+        <div style={{ fontSize: 14, color: C.muted, marginBottom: 12 }}>Projeto não encontrado</div>
         <a href="/projetos" style={{ ...S.btnPrimary, textDecoration: 'none' }}>Ver projetos</a>
       </div>
     </div>
@@ -264,9 +264,9 @@ export default function ProjectDetailPage() {
                 <label style={S.label}>Status</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[
-                    ['not_started', 'Nao iniciado', C.mutedLight],
+                    ['not_started', 'Não iniciado', C.mutedLight],
                     ['in_progress', 'Em andamento', C.warn],
-                    ['completed', 'Concluido', C.success],
+                    ['completed', 'Concluído', C.success],
                   ].map(([s, l, col]) => (
                     <button key={s} onClick={() => updateProject({ status: s })} style={{
                       flex: 1, padding: '10px 4px', borderRadius: 10,
@@ -284,7 +284,7 @@ export default function ProjectDetailPage() {
               <a href={`/projetos/${project.id}/editar`} style={{ ...S.card, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Editar projeto</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Nome, descricao e dados</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Nome, descrição e dados</div>
                 </div>
                 <span style={{ fontSize: 18, color: C.stone }}>&rsaquo;</span>
               </a>
@@ -299,11 +299,11 @@ export default function ProjectDetailPage() {
 
       {/* Delete confirmation */}
       {showDeleteConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,37,32,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,41,59,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
           <div style={{ ...S.card, padding: 28, maxWidth: 340, width: '100%' } as React.CSSProperties}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 600, color: C.ink, marginBottom: 8 }}>Excluir projeto?</div>
-              <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>Esta acao nao pode ser desfeita.</div>
+              <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>Esta ação não pode ser desfeita.</div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setShowDeleteConfirm(false)} style={{ ...S.btnGhost, flex: 1 }}>Cancelar</button>
                 <button onClick={async () => { await fetch(`/api/projects/${params.id}`, { method: 'DELETE' }); router.push('/projetos') }} style={{ flex: 1, ...S.btnPrimary, background: C.error }}>Excluir</button>
@@ -319,14 +319,14 @@ export default function ProjectDetailPage() {
 function PixelTab({ project, pixelGrid, onUpdate }: { project: Project; pixelGrid: string[][]; onUpdate: (data: any) => void }) {
   const [converting, setConverting] = useState(false)
   const [convertFile, setConvertFile] = useState<File | null>(null)
+  const [maxSize, setMaxSize] = useState(40)
 
-  // Convert image
   async function convertImage(file: File) {
     setConverting(true)
     try {
       const formData = new FormData()
       formData.append('image', file)
-      formData.append('maxSize', '40')
+      formData.append('maxSize', String(maxSize))
       const res = await fetch('/api/convert-image', { method: 'POST', body: formData })
       if (res.ok) {
         const data = await res.json()
@@ -346,14 +346,14 @@ function PixelTab({ project, pixelGrid, onUpdate }: { project: Project; pixelGri
         <span style={{ fontSize: 24 }}>&#x1F5BC;</span>
         <div>
           <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>Upload de imagem pixelada</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Envie uma imagem que ja esta em pixels</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Envie uma imagem que já está em pixels</div>
         </div>
         <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
           const file = e.target.files?.[0]
           if (!file) return
           const fd = new FormData()
           fd.append('image', file)
-          fd.append('maxSize', '40')
+          fd.append('maxSize', String(maxSize))
           fetch('/api/convert-image', { method: 'POST', body: fd }).then(r => r.json()).then(d => {
             if (d.pixels) onUpdate({ pixelData: JSON.stringify(d.pixels), currentRow: 0, status: 'in_progress', pixelWidth: d.width, pixelHeight: d.height })
           })
@@ -369,11 +369,32 @@ function PixelTab({ project, pixelGrid, onUpdate }: { project: Project; pixelGri
             <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Qualquer foto — convertemos em pixels</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <label style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: C.cream, border: `1px solid ${C.creamDark}` }}>
             <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) convertImage(f) }} />
             <span style={{ fontSize: 13, color: C.muted }}>Selecionar imagem</span>
           </label>
+        </div>
+        {/* Detail level */}
+        <div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Nível de detalhe:</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { v: 20, l: 'Simples' },
+              { v: 40, l: 'Detalhado' },
+              { v: 60, l: 'Muito detalhado' },
+            ].map(({ v, l }) => (
+              <button key={v} onClick={() => setMaxSize(v)} style={{
+                flex: 1, padding: '7px 4px', borderRadius: 8, cursor: 'pointer',
+                border: `1.5px solid ${maxSize === v ? C.sage : C.creamDark}`,
+                background: maxSize === v ? C.sagePale : C.white,
+                color: maxSize === v ? C.sageDark : C.muted,
+                fontSize: 11, fontWeight: 600,
+              }}>
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
         {converting && <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>Convertendo...</div>}
       </div>
