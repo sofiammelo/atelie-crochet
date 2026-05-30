@@ -51,7 +51,7 @@ export default function Home() {
           <a href="/projetos/novo" style={{ ...S.btnPrimary, padding: '7px 16px', fontSize: 12, textDecoration: 'none' }}>Novo projeto</a>
         </div>
       </div>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-full mx-auto">
         {/* Header */}
         <div style={{
           background: C.ink, padding: '52px 24px 28px',

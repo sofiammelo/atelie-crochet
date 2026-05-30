@@ -35,7 +35,7 @@ export default function NewProjectPage() {
 
   const [submitting, setSubmitting] = useState(false)
 
-  const colors = ['#6B8F71', '#4a6b50', '#8aab90', '#1e293b', '#475569', '#94a3b8', '#d97706', '#dc2626', '#4a6b8a', '#8a6b4a', '#fdfcfb', '#cbd5e1']
+  const colors = ['#4A90D9', '#3A7BC8', '#6AAEE8', '#1A2A4A', '#3D5A80', '#8DA4C0', '#d97706', '#dc2626', '#6B82A0', '#B8C8E0', '#fdfcfb', '#E8F0FE']
 
   // ── PDF ──
   async function handlePdfSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -190,7 +190,7 @@ export default function NewProjectPage() {
         </h1>
       </div>
 
-      <div className="max-w-xl mx-auto px-4 py-6" style={{ paddingBottom: 100 }}>
+      <div className="max-w-3xl mx-auto px-4 py-6" style={{ paddingBottom: 100 }}>
         {/* Name */}
         <div style={{ marginBottom: 20 }}>
           <label style={S.label}>Nome do projeto</label>

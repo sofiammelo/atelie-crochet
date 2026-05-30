@@ -60,7 +60,7 @@ export default function ProjectsPage() {
           <a href="/projetos/novo" style={{ ...S.btnPrimary, padding: '7px 16px', fontSize: 12, textDecoration: 'none' }}>Novo projeto</a>
         </div>
       </div>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-full mx-auto">
         {/* Header */}
         <div style={{ background: C.ink, padding: '52px 24px 24px' }}>
           <a href="/" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '7px 14px', color: 'rgba(255,255,255,0.7)', fontSize: 13, display: 'inline-block', textDecoration: 'none' }}>

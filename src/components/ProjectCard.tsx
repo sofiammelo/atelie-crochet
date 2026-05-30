@@ -4,8 +4,8 @@ import { C } from '@/lib/tokens'
 
 const STATUS_DOT: Record<string, string> = {
   in_progress: '#d97706',
-  completed: '#5a8a60',
-  not_started: '#94a3b8',
+  completed: '#4A90D9',
+  not_started: '#8DA4C0',
 }
 
 const TYPE_LABEL: Record<string, string> = {

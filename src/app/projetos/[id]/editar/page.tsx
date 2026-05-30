@@ -71,34 +71,34 @@ export default function EditProjectPage() {
   }
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 pt-8 text-center text-[#64748b] py-20">Carregando...</div>
+    return <div className="max-w-2xl mx-auto px-4 pt-8 text-center text-[#6B82A0] py-20">Carregando...</div>
   }
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-8 pb-24">
-      <Link href={`/projetos/${params.id}`} className="text-sm text-[#64748b] hover:text-purple-600 mb-4 inline-block">
+      <Link href={`/projetos/${params.id}`} className="text-sm text-[#6B82A0] hover:text-[#4A90D9] mb-4 inline-block">
         ← Voltar
       </Link>
-      <h1 className="text-2xl font-display font-bold text-[#1a1a2e] mb-6">Editar Projeto</h1>
+      <h1 className="text-2xl font-bold text-[#1A2A4A] mb-6">Editar Projeto</h1>
 
-      <div className="bg-white rounded-2xl border border-[#e2e8f0] p-6 shadow-sm space-y-4">
+      <div className="bg-white rounded-2xl border border-[#ede8e0] p-6 shadow-sm space-y-4">
         <div>
-          <label className="block text-sm font-medium text-[#1a1a2e] mb-1">Nome</label>
+          <label className="block text-sm font-medium text-[#1A2A4A] mb-1">Nome</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl border border-[#e2e8f0] bg-[#faf5f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+            className="w-full px-4 py-2.5 rounded-xl border border-[#ede8e0] bg-[#fdfcfb] text-sm focus:outline-none focus:ring-2 focus:ring-[#A8C8EE]"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#1a1a2e] mb-1">Descrição</label>
+          <label className="block text-sm font-medium text-[#1A2A4A] mb-1">Descrição</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full px-4 py-2.5 rounded-xl border border-[#e2e8f0] bg-[#faf5f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none"
+            className="w-full px-4 py-2.5 rounded-xl border border-[#ede8e0] bg-[#fdfcfb] text-sm focus:outline-none focus:ring-2 focus:ring-[#A8C8EE] resize-none"
           />
         </div>
 
@@ -115,8 +115,8 @@ export default function EditProjectPage() {
                 onClick={() => setStatus(s.value)}
                 className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
                   status === s.value
-                    ? 'bg-purple-50 text-purple-700 border-purple-400'
-                    : 'bg-white text-[#64748b] border-[#e2e8f0] hover:border-purple-300'
+                    ? 'bg-[#E8F0FE] text-[#4A90D9] border-[#4A90D9]'
+                    : 'bg-white text-[#6B82A0] border-[#ede8e0] hover:border-[#A8C8EE]'
                 }`}
               >
                 {s.label}
@@ -127,12 +127,12 @@ export default function EditProjectPage() {
 
         {projectType === 'amigurumi' && (
           <div>
-            <label className="block text-sm font-medium text-[#1a1a2e] mb-1">Receita (uma linha por etapa)</label>
+            <label className="block text-sm font-medium text-[#1A2A4A] mb-1">Receita (uma linha por etapa)</label>
             <textarea
               value={patternText}
               onChange={(e) => setPatternText(e.target.value)}
               rows={12}
-              className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] bg-[#faf5f0] text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 font-mono"
+              className="w-full px-4 py-3 rounded-xl border border-[#ede8e0] bg-[#fdfcfb] text-sm focus:outline-none focus:ring-2 focus:ring-[#A8C8EE] font-mono"
             />
           </div>
         )}
@@ -141,13 +141,13 @@ export default function EditProjectPage() {
           <button
             onClick={handleSave}
             disabled={saving || !name.trim()}
-            className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="flex-1 bg-[#4A90D9] text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[#3A7BC8] transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
           <Link
             href={`/projetos/${params.id}`}
-            className="px-6 py-2.5 rounded-xl text-sm font-medium border border-[#e2e8f0] hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 rounded-xl text-sm font-medium border border-[#ede8e0] hover:bg-gray-50 transition-colors"
           >
             Cancelar
           </Link>

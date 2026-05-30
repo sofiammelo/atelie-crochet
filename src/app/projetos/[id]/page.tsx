@@ -123,7 +123,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="min-h-screen" style={{ background: C.cream, paddingBottom: 80 }}>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-full mx-auto">
         {/* Hero */}
         <div style={{
           background: `linear-gradient(135deg, ${C.sageDark} 0%, ${C.ink} 100%)`,
