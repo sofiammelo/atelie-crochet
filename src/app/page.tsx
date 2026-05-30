@@ -62,10 +62,10 @@ export default function Home() {
           <div style={{ position: 'relative' }}>
             <div>
               <div style={{ fontSize: 11, color: C.sageLight, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
-                Ola
+                Olá, Bem Vindo
               </div>
               <h1 style={{ margin: 0, color: C.white, fontSize: 30, fontWeight: 600, lineHeight: 1.1 }}>
-                Meu Atelie<br /><span style={{ color: C.sageLight, fontStyle: 'italic' }}>de Croche</span>
+                Meu Ateliê<br /><span style={{ color: C.sageLight, fontStyle: 'italic' }}>de Crochê</span>
               </h1>
             </div>
             <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>

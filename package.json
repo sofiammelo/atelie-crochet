@@ -25,6 +25,9 @@
     "tesseract.js": "^5.1.1",
     "uuid": "^14.0.0"
   },
+  "optionalDependencies": {
+    "canvas": "^2.11.2"
+  },
   "devDependencies": {
     "@types/multer": "^2.1.0",
     "@types/node": "^25.9.1",

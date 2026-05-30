@@ -16,77 +16,82 @@ export function TapestryGuide({
   const cols = grid[0].length
 
   const isBrowser = typeof window !== 'undefined'
-
-  // small pixel size for non-current rows
-  const smallMax = isBrowser ? Math.min(window.innerWidth - 80, 460) : 380
-  const sps = Math.max(Math.floor(smallMax / cols), 5)
-  const bps = Math.max(Math.floor(sps * 2.2), 14)
+  const smallMax = isBrowser ? Math.min(window.innerWidth - 80, 480) : 380
+  const sps = Math.max(Math.floor(smallMax / cols), 4)
+  const bps = Math.max(Math.floor(sps * 2.5), 14)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Single grid — all rows together, current row bigger */}
       <div style={{ ...S.card, overflow: 'hidden' }}>
         {/* Column numbers */}
         <div style={{
-          display: 'flex', padding: '8px 12px 4px',
-          borderBottom: `1px solid ${C.creamDark}`,
-          gap: 1, alignItems: 'flex-end',
+          display: 'flex', borderBottom: `1px solid ${C.creamDark}`,
+          alignItems: 'flex-end', paddingLeft: 30,
         }}>
-          <div style={{ width: 26, flexShrink: 0 }} />
           {grid[0].map((_, c) => (
             <div key={c} style={{
               width: sps, flexShrink: 0, textAlign: 'center',
               fontSize: Math.min(sps * 0.45, 9), color: C.mutedLight,
+              lineHeight: '16px',
             }}>
               {c + 1}
             </div>
           ))}
         </div>
 
-        {/* Rows */}
-        <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+        {/* Rows as unified pixel block */}
+        <div style={{ position: 'relative', maxHeight: 460, overflowY: 'auto', padding: 0 }}>
           {grid.map((row, r) => {
             const done = r < currentRow
             const active = r === currentRow
-            const ps = active ? bps : sps
+            const cellSize = active ? bps : sps
+            const cellGap = active ? 1 : 0
             return (
               <div key={r} style={{
-                display: 'flex', gap: 1, alignItems: 'center',
-                padding: active ? '10px 12px' : '2px 12px',
-                background: active ? C.sagePale : done ? C.cream : 'transparent',
-                borderBottom: `1px solid ${active ? C.sageLight : C.cream}`,
+                display: 'flex',
+                background: active ? C.sagePale : done ? 'transparent' : 'transparent',
                 position: 'relative',
-                transition: 'padding 0.2s, background 0.2s',
+                alignItems: 'stretch',
+                marginBottom: active ? 1 : 0,
               }}>
+                {/* Row label — overlay on the left */}
                 <div style={{
-                  width: 26, flexShrink: 0, textAlign: 'center',
-                  fontSize: active ? 13 : 10, fontWeight: 700,
-                  color: done ? C.success : active ? C.sageDark : C.mutedLight,
+                  position: 'absolute', left: 2, top: 0, bottom: 0,
+                  display: 'flex', alignItems: 'center', zIndex: 2,
+                  width: 26, flexShrink: 0,
                 }}>
-                  {done ? '\u2713' : active ? '\u25B6' : r + 1}
+                  <div style={{
+                    fontSize: active ? 12 : 9, fontWeight: 700,
+                    color: done ? C.success : active ? C.sageDark : C.mutedLight,
+                    textAlign: 'center', width: '100%',
+                    textShadow: '0 0 3px rgba(253,252,251,0.9)',
+                  }}>
+                    {done ? '\u2713' : active ? '\u25B6' : r + 1}
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: active ? 1.5 : 0.5 }}>
+                {/* Pixel row */}
+                <div style={{
+                  display: 'flex', gap: cellGap,
+                  marginLeft: 30,
+                }}>
                   {row.map((col, c) => (
                     <div key={c} style={{
-                      width: ps, height: ps,
+                      width: cellSize, height: cellSize,
                       background: col,
-                      borderRadius: active ? 2 : 1,
-                      border: active
-                        ? '1px solid rgba(0,0,0,0.12)'
-                        : done ? '0.5px solid rgba(0,0,0,0.04)' : '0.5px solid rgba(0,0,0,0.02)',
+                      opacity: done ? 0.55 : active ? 1 : 0.8,
                       flexShrink: 0,
-                      opacity: done ? 0.6 : active ? 1 : 0.85,
                     }} />
                   ))}
                 </div>
 
+                {/* AGORA badge */}
                 {active && (
                   <div style={{
-                    marginLeft: 6, background: C.sage, color: C.white,
+                    position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+                    background: C.sage, color: C.white,
                     fontSize: 9, fontWeight: 700, padding: '2px 8px',
                     borderRadius: 5, letterSpacing: 0.5, whiteSpace: 'nowrap',
-                    flexShrink: 0,
                   }}>
                     AGORA
                   </div>
