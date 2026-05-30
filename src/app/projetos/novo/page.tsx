@@ -14,6 +14,7 @@ export default function NewProjectPage() {
   const [parsingPdf, setParsingPdf] = useState(false)
   const [pdfText, setPdfText] = useState('')
   const [pdfError, setPdfError] = useState('')
+  const [parsedRecipe, setParsedRecipe] = useState<any>(null)
 
   // Tapestry - pixel upload
   const [pixelFile, setPixelFile] = useState<File | null>(null)
@@ -54,8 +55,14 @@ export default function NewProjectPage() {
         throw new Error(err.error || 'Falha ao processar PDF')
       }
       const data = await res.json()
-      if (data.text) setPdfText(data.text)
-      else setPdfError('Nenhum texto encontrado no PDF')
+      if (data.recipe) {
+        setPdfText(data.text || '')
+        setParsedRecipe(JSON.parse(data.recipe))
+      } else if (data.text) {
+        setPdfText(data.text)
+      } else {
+        setPdfError('Nenhum texto encontrado no PDF')
+      }
     } catch (e: any) {
       setPdfError(e.message || 'Erro ao processar PDF')
     } finally { setParsingPdf(false) }
@@ -113,6 +120,9 @@ export default function NewProjectPage() {
 
   // ── Submit ──
   function buildRecipe() {
+    if (type === 'amigurumi' && parsedRecipe) {
+      return JSON.stringify(parsedRecipe)
+    }
     const recipe: any = { title: name.trim(), materials: '', sections: [] }
     if (type === 'amigurumi' && pdfText) {
       const lines = pdfText.split('\n').filter((l: string) => l.trim())

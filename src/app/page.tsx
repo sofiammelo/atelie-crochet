@@ -87,7 +87,7 @@ export default function Home() {
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: C.ink }}>Em andamento</h2>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.warn }} />
               </div>
-              {inProgress.slice(0, 3).map(p => (
+              {inProgress.slice(0, 1).map(p => (
                 <a key={p.id} href={`/projetos/${p.id}`} style={{ textDecoration: 'none' }}>
                   <div style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, padding: 14, cursor: 'pointer', marginBottom: 10 }}>
                     <div style={{ width: 52, height: 52, borderRadius: 12, background: p.coverImage ? `url(${p.coverImage}) center/cover` : C.sagePale, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>

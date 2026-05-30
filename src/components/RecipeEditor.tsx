@@ -20,6 +20,7 @@ export type Recipe = {
   title: string
   materials: string
   sections: RecipeSection[]
+  notes?: string[]
 }
 
 export function emptyRecipe(): Recipe {

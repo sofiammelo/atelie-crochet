@@ -81,6 +81,7 @@ export function TapestryGuide({
                       background: col,
                       opacity: done ? 0.55 : active ? 1 : 0.8,
                       flexShrink: 0,
+                      outline: '0.5px solid rgba(0,0,0,0.07)',
                     }} />
                   ))}
                 </div>

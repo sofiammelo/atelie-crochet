@@ -210,6 +210,18 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                   )}
+                  {recipe.notes && recipe.notes.length > 0 && (
+                    <div style={{ ...S.card, padding: 16, marginBottom: 16, background: `${C.info}0a`, border: `1px solid ${C.info}30` } as React.CSSProperties}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.info, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                        Notas
+                      </div>
+                      {(recipe.notes as string[]).map((n, i) => (
+                        <div key={i} style={{ fontSize: 13, color: C.info, lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: i < (recipe.notes as string[]).length - 1 ? 8 : 0 }}>
+                          {n}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {(recipe.sections || []).map(sec => (
                     <div key={sec.id} style={{ ...S.card, marginBottom: 14, overflow: 'hidden' } as React.CSSProperties}>
                       <div style={{ padding: '12px 16px', background: C.sagePale, borderBottom: `1px solid ${C.creamDark}` }}>

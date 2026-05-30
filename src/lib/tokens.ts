@@ -14,6 +14,7 @@ export const C = {
   warn: '#d97706',
   success: '#4A90D9',
   error: '#dc2626',
+  info: '#6B21A8',
 }
 
 export const S = {
