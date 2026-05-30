@@ -14,11 +14,45 @@ async function extractText(buffer: Buffer): Promise<string> {
   return parts.join('\n\n')
 }
 
-// ── Step 2: OCR with sharp PDF render + tesseract.js ──
+// ── Step 2: Extract from operator list (catches text getTextContent misses) ──
+async function extractFromOperators(buffer: Buffer): Promise<string> {
+  try {
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const { getDocument } = pdfjsLib
+    const OPS = (pdfjsLib as any).OPS || {}
+    const showText = OPS.showText ?? 51
+    const showSpacedText = OPS.showSpacedText ?? 52
+    const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
+    const parts: string[] = []
+
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i)
+      const opList = await page.getOperatorList()
+      for (let j = 0; j < opList.fnArray.length; j++) {
+        const fn = opList.fnArray[j]
+        if (fn === showText || fn === showSpacedText) {
+          const args = opList.argsArray[j]
+          if (args?.[0]) {
+            const chars = args[0] as any[]
+            const text = chars
+              .filter((c: any) => typeof c === 'string')
+              .join('')
+            if (text.trim()) parts.push(text.trim())
+          }
+        }
+      }
+    }
+    return parts.join(' ')
+  } catch {
+    return ''
+  }
+}
+
+// ── Step 3: OCR with sharp + tesseract.js ──
 async function ocrFallback(buffer: Buffer): Promise<string> {
   let images: Buffer[] = []
 
-  // 2a) Try sharp — reads PDF directly if libvips has poppler
+  // 3a) Try sharp PDF render
   try {
     const sharp = (await import('sharp')).default
     const pageCount = estimatePDFPages(buffer)
@@ -29,11 +63,11 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
         if (meta.width && meta.height) {
           images.push(await img.png().toBuffer())
         }
-      } catch { /* sharp can't read this page */ }
+      } catch { /* skip */ }
     }
   } catch { /* sharp not available */ }
 
-  // 2b) Try pdfjs-dist + canvas (works on Vercel Linux)
+  // 3b) Try pdfjs-dist + canvas (Vercel Linux)
   if (images.length === 0) {
     try {
       const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
@@ -55,7 +89,6 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
 
   if (images.length === 0) return ''
 
-  // Run tesseract.js on collected images
   try {
     const { createWorker } = await import('tesseract.js')
     const worker = await createWorker('por+eng')
@@ -71,76 +104,53 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
   }
 }
 
-// ── Step 3: Extract readable strings from PDF binary ──
-// Only matches text inside PDF text operators (Tj / TJ / ' ") to avoid binary garbage
+// ── Step 4: Raw strings from PDF binary ──
 function extractRawStrings(buffer: Buffer): string {
   const raw = buffer.toString('binary')
 
-  // Pattern: (text) Tj  or  (text) '  or  (text) "
-  const tj = raw.match(/\(([^)]{2,})\)\s*(Tj|'|")\b/g) || []
-  const tjTexts = tj.map(m => {
-    const inner = m.match(/^\(([^)]+)\)/)
-    return inner ? inner[1] : ''
-  })
+  // 4a) Standard text operators: (text) Tj / (text) ' / (text) "
+  const stdOps = raw.match(/\(([^)]+)\)\s*(Tj|'|")/g) || []
+  const stdTexts = stdOps
+    .map(m => { const i = m.match(/^\(([^)]+)\)/); return i ? i[1] : '' })
+    .filter(t => !/^[0-9\s\-./,]*$/.test(t)) // skip pure numbers
 
-  // Pattern: [(text) kern (text)] TJ
-  const tjArray = raw.match(/\[([\s\S]*?)\]\s*TJ\b/g) || []
-  const tjArrayTexts = tjArray.flatMap(arr => {
+  // 4b) Array text operators: [(text) kern (text)] TJ
+  const arrOps = raw.match(/\[([\s\S]*?)\]\s*TJ/g) || []
+  const arrTexts = arrOps.flatMap(arr => {
     const parts = arr.match(/\(([^)]*)\)/g) || []
-    return [parts.map(p => p.slice(1, -1)).join(' ')]
+    return parts.map(p => p.slice(1, -1)).join(' ')
   })
 
-  const all = [...tjTexts, ...tjArrayTexts]
-    .filter(t => looksLikeText(t))
+  // 4c) Hex strings: <hex> Tj
+  const hexOps = raw.match(/<([0-9A-Fa-f]+)>\s*Tj/g) || []
+  const hexTexts = hexOps.map(m => {
+    const hex = m.match(/<([0-9A-Fa-f]+)>/)
+    return hex ? Buffer.from(hex[1], 'hex').toString('utf8') : ''
+  }).filter(Boolean)
+
+  // 4d) Desperate: scan for any text-like runs in the binary
+  const textRuns = raw.match(/[\x20-\x7E\u00C0-\u00FF]{8,}/g) || []
+
+  const all = [...stdTexts, ...arrTexts, ...hexTexts, ...textRuns]
+    .filter(t => looksReadable(t))
+
   return Array.from(new Set(all)).join('\n')
 }
 
-// Heuristic: string looks like human-readable text
-function looksLikeText(s: string): boolean {
-  if (s.length < 8) return false
-  const printable = s.replace(/[\x20-\x7E\u00C0-\u00FF]/g, '')
-  if (printable.length / s.length > 0.15) return false // too many non-printable chars
-  // Must have spaces between words (or common crochet separators)
-  if (!/[\s,;:]/.test(s)) return false
-  // Reject if only numbers/symbols
-  if (/^[0-9\s\-./,]*$/.test(s)) return false
-  // Reject hex-looking strings
-  if (/^[0-9A-Fa-f\s]+$/.test(s)) return false
+// Heuristic: does this look like human-readable text?
+function looksReadable(s: string): boolean {
+  if (s.length < 6) return false
+  // Count non-printable (non-ASCII, non-Latin-1) chars
+  const bad = s.replace(/[\x20-\x7E\u00A0-\u00FF\u0100-\u024F]/g, '')
+  if (bad.length / s.length > 0.2) return false
+  // Must contain at least one letter
+  if (!/[A-Za-z\u00C0-\u00FF]/.test(s)) return false
+  // At least 2 words or word-like tokens
+  const tokens = s.split(/[\s,;:]+/).filter(Boolean)
+  if (tokens.length < 2 && s.length < 12) return false
+  // Reject hex dumps
+  if (/^[0-9A-Fa-f]+$/.test(s.replace(/[\s]/g, ''))) return false
   return true
-}
-
-// ── Step 3b: Try to extract text from PDF operator list (more thorough) ──
-async function extractFromOperatorList(buffer: Buffer): Promise<string> {
-  try {
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    const { getDocument } = pdfjsLib
-    const OPS = (pdfjsLib as any).OPS || { showText: 1 }
-    const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
-    const parts: string[] = []
-
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i)
-      const opList = await page.getOperatorList()
-      for (let j = 0; j < opList.fnArray.length; j++) {
-        if (opList.fnArray[j] === OPS.showText) {
-          const args = opList.argsArray[j]
-          if (args?.[0]) {
-            const chars = args[0] as any[]
-            const text = chars
-              .filter((c: any) => typeof c === 'string' || c?.unicode)
-              .map((c: any) => (typeof c === 'string' ? c : c.unicode))
-              .join('')
-            if (text.trim() && looksLikeText(text.trim())) {
-              parts.push(text.trim())
-            }
-          }
-        }
-      }
-    }
-    return parts.join(' ')
-  } catch {
-    return ''
-  }
 }
 
 // ── Heuristic PDF page count ──
@@ -168,24 +178,20 @@ function parseSections(text: string) {
   for (const line of lines) {
     const lower = line.toLowerCase().trim()
 
-    // Detect materials section
     if (/material|materiais|fios|lã|lãs|agulha|agulhas/i.test(lower) && /[:]/.test(line)) {
       if (current) sections.push(current)
       current = null
       materials.push(line)
       continue
     }
-    // Continue collecting materials
     if (materials.length > 0 && !sectionLabels.some(s => lower.includes(s)) && !/carreira|linha|volta|carr|ª|^[0-9]/.test(lower)) {
       materials.push(line)
       continue
     }
 
-    // Detect section headers (CAPS or bold looking)
     const isSection = sectionLabels.some(s => {
       const idx = lower.indexOf(s)
       if (idx === -1) return false
-      // Must be at start of line or after a separator
       const before = lower[idx - 1]
       return !before || /[\s\-–—,:;(]/.test(before)
     })
@@ -196,13 +202,11 @@ function parseSections(text: string) {
       continue
     }
 
-    // Detect notes
     if (/^nota|^obs|^dica|atencao|atenção/i.test(lower) || /nota:|obs:|dica:/i.test(lower)) {
       notes.push(line)
       continue
     }
 
-    // Regular instruction line
     if (current) {
       current.rows.push(line)
     }
@@ -210,7 +214,6 @@ function parseSections(text: string) {
 
   if (current) sections.push(current)
 
-  // If no sections found, create a single section
   if (sections.length === 0 && materials.length === 0 && notes.length === 0) {
     return { materials, sections: [{ name: 'Receita', rows: lines }], notes }
   }
@@ -218,9 +221,9 @@ function parseSections(text: string) {
   return { materials, sections, notes }
 }
 
-// ── Build structured recipe from PDF text ──
 function buildRecipe(text: string, type: string) {
   if (type !== 'amigurumi') return ''
+  if (!text.trim()) return ''
 
   const { materials, sections, notes } = parseSections(text)
 
@@ -255,26 +258,18 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // 1) Text extraction with pdfjs-dist
     let text = ''
     try { text = await extractText(buffer) } catch (e: any) { console.warn('pdfjs err:', e?.message) }
-
-    // 2) Try operator list extraction (more thorough)
     if (!text.trim()) {
-      try { text = await extractFromOperatorList(buffer) } catch (e: any) { console.warn('oplist err:', e?.message) }
+      try { text = await extractFromOperators(buffer) } catch (e: any) { console.warn('oplist err:', e?.message) }
     }
-
-    // 3) OCR fallback for scanned/image PDFs
     if (!text.trim()) {
       try { text = await ocrFallback(buffer) } catch (e: any) { console.warn('ocr err:', e?.message) }
     }
-
-    // 4) Raw string extraction from PDF binary (conservative)
     if (!text.trim()) {
       text = extractRawStrings(buffer)
     }
 
-    // 5) Build structured recipe
     const recipe = buildRecipe(text, type)
 
     return NextResponse.json({

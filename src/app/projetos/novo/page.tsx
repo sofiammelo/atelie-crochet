@@ -35,6 +35,7 @@ export default function NewProjectPage() {
   const [customColor, setCustomColor] = useState('#6B8F71')
 
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const colors = ['#4A90D9', '#3A7BC8', '#6AAEE8', '#1A2A4A', '#3D5A80', '#8DA4C0', '#d97706', '#dc2626', '#6B82A0', '#B8C8E0', '#fdfcfb', '#E8F0FE']
 
@@ -138,6 +139,7 @@ export default function NewProjectPage() {
 
   async function handleCreate() {
     if (!name.trim()) return
+    setSubmitError('')
     setSubmitting(true)
     try {
       const data: any = {
@@ -179,7 +181,11 @@ export default function NewProjectPage() {
       if (!res.ok) throw new Error('Falha ao criar')
       const result = await res.json()
       if (result.project) router.push(`/projetos/${result.project.id}`)
-    } catch (e) { console.error(e) } finally { setSubmitting(false) }
+      else setSubmitError('Resposta inesperada do servidor')
+    } catch (e: any) {
+      setSubmitError(e.message || 'Erro ao criar projeto')
+      console.error(e)
+    } finally { setSubmitting(false) }
   }
 
   const canSubmit = name.trim() && !submitting
@@ -404,6 +410,11 @@ export default function NewProjectPage() {
           </div>
         )}
 
+        {submitError && (
+          <div style={{ marginBottom: 12, fontSize: 13, color: C.error, background: `${C.error}0a`, padding: '10px 14px', borderRadius: 10, border: `1px solid ${C.error}30` }}>
+            {submitError}
+          </div>
+        )}
         <button onClick={handleCreate} disabled={!canSubmit} style={{
           width: '100%', padding: '14px', borderRadius: 12, border: 'none',
           background: canSubmit ? C.sage : C.creamDark, color: canSubmit ? C.white : C.mutedLight,
