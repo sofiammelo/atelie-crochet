@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
 
+// ── Canvas loader: try multiple strategies ──
+async function loadCanvas(): Promise<any> {
+  // 1) Dynamic import (ESM)
+  try {
+    // @ts-expect-error canvas may not be installed
+    const mod = await import('canvas')
+    return mod.default || mod
+  } catch {}
+  // 2) require (CJS) — available in Next.js route handlers
+  try {
+    return require('canvas')
+  } catch {}
+  // 3) Function-based require (bypasses webpack analysis)
+  try {
+    return Function('return require("canvas")')()
+  } catch {}
+  // 4) @napi-rs/canvas (alternative native canvas)
+  try {
+    // @ts-expect-error @napi-rs/canvas may not be installed
+    const mod = await import('@napi-rs/canvas')
+    return mod.createCanvas ? mod : null
+  } catch {}
+  return null
+}
+
 // ── Step 1: Text via pdfjs-dist ──
 async function extractText(buffer: Buffer): Promise<string> {
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
@@ -46,37 +71,40 @@ async function extractFromOperators(buffer: Buffer): Promise<string> {
 async function ocrFallback(buffer: Buffer): Promise<string> {
   let images: Buffer[] = []
 
-  // sharp PDF render
+  // 3a) sharp PDF render (try pages 0-9, skip page count heuristic)
   try {
     const sharp = (await import('sharp')).default
-    const pageCount = estimatePDFPages(buffer)
-    for (let p = 0; p < Math.min(pageCount, 20); p++) {
+    for (let p = 0; p < 10; p++) {
       try {
         const img = sharp(buffer, { page: p, pages: 1 })
-        const meta = await img.metadata()
-        if (meta.width && meta.height) images.push(await img.png().toBuffer())
-      } catch { /* skip */ }
+        const png = await img.png().toBuffer()
+        if (png.length > 100) images.push(png)
+      } catch { break }
     }
   } catch { /* sharp not available */ }
 
-  // pdfjs-dist + canvas (Vercel Linux)
+  // 3b) pdfjs-dist + canvas (node-canvas or @napi-rs/canvas)
   if (images.length === 0) {
-    try {
-      const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
-      let Canvas: any
-      try { Canvas = Function('return require("canvas")')() } catch { Canvas = null }
-      if (Canvas) {
+    const Canvas = await loadCanvas()
+    if (Canvas) {
+      try {
+        const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
         const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
         for (let i = 1; i <= Math.min(doc.numPages, 20); i++) {
           const page = await doc.getPage(i)
           const vp = page.getViewport({ scale: 1.5 })
-          const c = Canvas.createCanvas(Math.floor(vp.width), Math.floor(vp.height))
+          const create = Canvas.createCanvas || Canvas
+          const c = create(Math.floor(vp.width), Math.floor(vp.height))
           const ctx = c.getContext('2d')
           await page.render({ canvasContext: ctx, viewport: vp }).promise
-          images.push(c.toBuffer('image/png'))
+          const toBuf = c.toBuffer || (c as any).toBuffer
+          if (toBuf) {
+            const png = toBuf.call(c, 'image/png')
+            if (png && png.length > 100) images.push(Buffer.from(png))
+          }
         }
-      }
-    } catch { /* pdfjs+canvas render failed */ }
+      } catch { /* pdfjs+canvas render failed */ }
+    }
   }
 
   if (images.length === 0) return ''
@@ -92,13 +120,6 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
     await worker.terminate()
     return full.trim()
   } catch { return '' }
-}
-
-// ── Page count heuristic ──
-function estimatePDFPages(buffer: Buffer): number {
-  const raw = buffer.toString('binary')
-  const m = raw.match(/\/Type\s*\/Page[^s]/g)
-  return m ? m.length : 1
 }
 
 // ── Validates extracted text has real crochet content ──
@@ -202,41 +223,38 @@ export async function POST(request: NextRequest) {
 
     let text = ''
     let method = ''
+    const diag: string[] = []
 
-    // Step 1: pdfjs getTextContent (most reliable)
+    // Step 1: pdfjs getTextContent
     try {
       text = await extractText(buffer)
-      if (text.trim()) method = 'pdfjs-text'
-    } catch (e: any) {
-      console.warn('pdfjs-text error:', e?.message?.slice(0, 200))
-    }
+      if (text.trim()) { method = 'pdfjs-text'; diag.push('text ok') }
+      else diag.push('text empty')
+    } catch (e: any) { diag.push('text err:' + e?.message?.slice(0, 60)) }
 
     // Step 2: pdfjs operator list
     if (!text.trim()) {
       try {
         text = await extractFromOperators(buffer)
-        if (text.trim()) method = 'pdfjs-operators'
-      } catch (e: any) {
-        console.warn('pdfjs-operators error:', e?.message?.slice(0, 200))
-      }
+        if (text.trim()) { method = 'pdfjs-ops'; diag.push('ops ok') }
+        else diag.push('ops empty')
+      } catch (e: any) { diag.push('ops err:' + e?.message?.slice(0, 60)) }
     }
 
-    // Step 3: OCR (requires sharp or canvas)
+    // Step 3: OCR
     if (!text.trim()) {
       try {
+        const canvas = await loadCanvas()
+        diag.push(canvas ? 'canvas loaded' : 'no canvas')
         text = await ocrFallback(buffer)
-        if (text.trim()) method = 'ocr'
-        console.warn('ocr result length:', text.length)
-      } catch (e: any) {
-        console.warn('ocr error:', e?.message?.slice(0, 200))
-      }
+        if (text.trim()) { method = 'ocr'; diag.push('ocr ok') }
+        else diag.push('ocr empty')
+      } catch (e: any) { diag.push('ocr err:' + e?.message?.slice(0, 60)) }
     }
 
-    console.warn(`pdf-parse result: method=${method || 'none'}, text.length=${text.length}`)
-
-    // Validate content has real crochet words (only if we got text)
+    // Validate
     if (text.trim() && !hasRealCrochetText(text)) {
-      console.warn('pdf-parse: text failed crochet validation, discarding')
+      diag.push('failed crochet validation')
       text = ''
     }
 
@@ -246,9 +264,9 @@ export async function POST(request: NextRequest) {
       text: text || '',
       recipe: recipe || '',
       pages: 0,
+      diag: diag.join(' | '),
     })
   } catch (error: any) {
-    console.error('PDF error:', error?.message || error)
     return NextResponse.json({
       error: 'Erro ao processar PDF: ' + (error?.message || 'erro desconhecido'),
     }, { status: 500 })
