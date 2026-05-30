@@ -17,6 +17,8 @@ export default function NewProjectPage() {
 
   // Tapestry - pixel upload
   const [pixelFile, setPixelFile] = useState<File | null>(null)
+  const [pixelConverting, setPixelConverting] = useState(false)
+  const [pixelResult, setPixelResult] = useState<{ pixels: string[][]; width: number; height: number } | null>(null)
 
   // Tapestry - convert
   const [convertFile, setConvertFile] = useState<File | null>(null)
@@ -58,8 +60,22 @@ export default function NewProjectPage() {
   }
 
   // ── Tapestry pixel upload ──
-  function handlePixelFile(e: React.ChangeEvent<HTMLInputElement>) {
-    setPixelFile(e.target.files?.[0] || null)
+  async function handlePixelFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPixelFile(file)
+    setPixelResult(null)
+    setPixelConverting(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('maxSize', '40')
+      const res = await fetch('/api/convert-image', { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.pixels) setPixelResult({ pixels: data.pixels, width: data.width, height: data.height })
+      }
+    } catch (e) { console.error(e) } finally { setPixelConverting(false) }
   }
 
   // ── Tapestry convert ──
@@ -121,8 +137,12 @@ export default function NewProjectPage() {
       }
 
       if (type === 'tapestry') {
-        // Priority: pixel data > converted > created
-        if (convertedResult) {
+        // Priority: pixelResult > convertedResult > pixelGrid > pixelFile
+        if (pixelResult) {
+          data.pixelData = JSON.stringify(pixelResult.pixels)
+          data.pixelWidth = pixelResult.width
+          data.pixelHeight = pixelResult.height
+        } else if (convertedResult) {
           data.pixelData = JSON.stringify(convertedResult.pixels)
           data.pixelWidth = convertedResult.width
           data.pixelHeight = convertedResult.height
@@ -131,7 +151,6 @@ export default function NewProjectPage() {
           data.pixelWidth = createWidth
           data.pixelHeight = createHeight
         } else if (pixelFile) {
-          // Upload pixel file as original image
           const fd = new FormData()
           fd.append('file', pixelFile)
           fd.append('type', 'image')
@@ -257,12 +276,20 @@ export default function NewProjectPage() {
                   <div style={{ fontSize: 12, color: C.muted }}>Envie uma imagem que ja esta em pixels</div>
                 </div>
               </div>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: C.cream, border: `1px solid ${C.creamDark}` }}>
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePixelFile} />
-                <span style={{ fontSize: 13, color: pixelFile ? C.sageDark : C.muted }}>
-                  {pixelFile ? pixelFile.name : 'Selecionar imagem'}
-                </span>
-              </label>
+              {pixelConverting ? (
+                <div style={{ fontSize: 13, color: C.muted }}>Convertendo pixels...</div>
+              ) : pixelResult ? (
+                <div style={{ fontSize: 13, color: C.success, fontWeight: 600 }}>
+                  Convertido! {pixelResult.width}x{pixelResult.height} pixels
+                </div>
+              ) : (
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: C.cream, border: `1px solid ${C.creamDark}` }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePixelFile} />
+                  <span style={{ fontSize: 13, color: pixelFile ? C.sageDark : C.muted }}>
+                    {pixelFile ? pixelFile.name : 'Selecionar imagem'}
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* 2. Convert image */}

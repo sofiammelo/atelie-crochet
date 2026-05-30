@@ -349,14 +349,13 @@ function PixelTab({ project, pixelGrid, onUpdate }: { project: Project; pixelGri
           <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Envie uma imagem que ja esta em pixels</div>
         </div>
         <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
-          // Just upload as original image reference
           const file = e.target.files?.[0]
           if (!file) return
           const fd = new FormData()
-          fd.append('file', file)
-          fd.append('type', 'image')
-          fetch('/api/upload', { method: 'POST', body: fd }).then(r => r.json()).then(d => {
-            if (d.url) onUpdate({ originalImage: d.url })
+          fd.append('image', file)
+          fd.append('maxSize', '40')
+          fetch('/api/convert-image', { method: 'POST', body: fd }).then(r => r.json()).then(d => {
+            if (d.pixels) onUpdate({ pixelData: JSON.stringify(d.pixels), currentRow: 0, status: 'in_progress', pixelWidth: d.width, pixelHeight: d.height })
           })
         }} />
       </label>
