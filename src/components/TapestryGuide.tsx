@@ -72,7 +72,8 @@ export function TapestryGuide({
                       width: cellSize, height: cellSize,
                       background: col,
                       opacity: done ? 0.55 : active ? 1 : 0.8,
-                      outline: '0.5px solid rgba(0,0,0,0.07)',
+                      border: '0.5px solid rgba(0,0,0,0.25)',
+                      boxSizing: 'border-box',
                     }} />
                   ))}
                 </div>
