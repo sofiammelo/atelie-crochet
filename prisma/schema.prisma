@@ -21,6 +21,7 @@ model Project {
   patternText   String   @default("")
   pdfPath       String?
   currentLine   Int      @default(0)
+  recipe        String   @default("{}")
 
   // Tapestry fields
   pixelWidth    Int?

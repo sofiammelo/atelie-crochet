@@ -1,5 +1,28 @@
-import Link from 'next/link'
-import { statusLabel, statusColor, typeLabel, typeColor, formatTime } from '@/lib/utils'
+'use client'
+
+import { C, fonts } from '@/lib/tokens'
+
+const STATUS_DOT: Record<string, string> = {
+  in_progress: '#b08a4a',
+  completed: '#5a8a60',
+  not_started: '#8a8480',
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  amigurumi: 'Amigurumi',
+  tapestry: 'Tapestry',
+}
+
+const TYPE_EMOJI: Record<string, string> = {
+  amigurumi: '\u{1F9F6}',
+  tapestry: '\u{1F9F5}',
+}
+
+function fmtTime(s: number) {
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : '\u2014'
+}
 
 type Project = {
   id: string
@@ -13,42 +36,70 @@ type Project = {
   pdfPath: string | null
 }
 
-const TYPE_ICON: Record<string, string> = {
-  amigurumi: '\u{1F9F6}',
-  tapestry: '\u{1F9F5}',
-}
-
-export function ProjectCard({ project }: { project: Project }) {
+export function ProjectCard({
+  project,
+  onClick,
+}: {
+  project: Project
+  onClick: () => void
+}) {
   return (
-    <Link href={`/projetos/${project.id}`}>
-      <div className="bg-white rounded-2xl border border-[#e2e8f0] overflow-hidden hover:shadow-md transition-all group">
-        {project.coverImage ? (
-          <div className="h-28 overflow-hidden">
-            <img
-              src={project.coverImage}
-              alt={project.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          </div>
-        ) : (
-          <div className="h-16 bg-gradient-to-r from-purple-100 via-pink-100 to-orange-100 flex items-center justify-center">
-            <span className="text-xl">{TYPE_ICON[project.type] || '\u{1F9F6}'}</span>
-          </div>
+    <div
+      onClick={onClick}
+      style={{
+        background: '#fdfcfb', borderRadius: 16,
+        border: '1px solid #ede8e0', overflow: 'hidden',
+        cursor: 'pointer', transition: 'transform 0.18s, box-shadow 0.18s',
+        boxShadow: '0 1px 8px rgba(42,37,32,0.06)',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-3px)'
+        e.currentTarget.style.boxShadow = '0 6px 24px rgba(42,37,32,0.12)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = '0 1px 8px rgba(42,37,32,0.06)'
+      }}
+    >
+      <div style={{
+        height: 90,
+        background: project.coverImage
+          ? `url(${project.coverImage}) center/cover`
+          : `linear-gradient(135deg, ${C.sagePale}, ${C.creamDark})`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {!project.coverImage && (
+          <span style={{ fontSize: 32, opacity: 0.6 }}>
+            {TYPE_EMOJI[project.type] || '\u{1F9F6}'}
+          </span>
         )}
-        <div className="p-4">
-          <h3 className="font-semibold text-[#1a1a2e] truncate">{project.name}</h3>
-          <div className="flex items-center gap-2 mt-2">
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${typeColor(project.type)}`}>
-              {typeLabel(project.type)}
-            </span>
+      </div>
+      <div style={{ padding: '12px 14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{
+            fontFamily: fonts.display, fontSize: 15, fontWeight: 600,
+            color: C.ink, lineHeight: 1.3, flex: 1, marginRight: 8,
+          }}>
+            {project.name}
           </div>
-          {project.timerSeconds > 0 && (
-            <p className="text-xs text-[#64748b] mt-2">
-              {Math.floor(project.timerSeconds / 60)} min
-            </p>
-          )}
+          <div style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: STATUS_DOT[project.status] || C.stone,
+            flexShrink: 0, marginTop: 4,
+          }} />
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+          <span style={{
+            fontSize: 11, background: C.sagePale, color: C.sageDark,
+            padding: '2px 8px', borderRadius: 20, fontWeight: 600,
+          }}>
+            {TYPE_LABEL[project.type] || project.type}
+          </span>
+          <span style={{ fontSize: 11, color: C.mutedLight }}>
+            {fmtTime(project.timerSeconds || 0)}
+          </span>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }

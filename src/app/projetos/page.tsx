@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { C, S, fonts } from '@/lib/tokens'
 import { ProjectCard } from '@/components/ProjectCard'
-import { statusLabel, typeLabel } from '@/lib/utils'
 
 type Project = {
   id: string
@@ -17,6 +16,12 @@ type Project = {
   pdfPath: string | null
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  not_started: 'Nao iniciados',
+  in_progress: 'Andamento',
+  completed: 'Concluidos',
+}
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [filtered, setFiltered] = useState<Project[]>([])
@@ -25,9 +30,7 @@ export default function ProjectsPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchProjects()
-  }, [])
+  useEffect(() => { fetchProjects() }, [])
 
   useEffect(() => {
     let result = [...projects]
@@ -35,12 +38,8 @@ export default function ProjectsPage() {
       const q = search.toLowerCase()
       result = result.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
     }
-    if (filterType !== 'all') {
-      result = result.filter(p => p.type === filterType)
-    }
-    if (filterStatus !== 'all') {
-      result = result.filter(p => p.status === filterStatus)
-    }
+    if (filterType !== 'all') result = result.filter(p => p.type === filterType)
+    if (filterStatus !== 'all') result = result.filter(p => p.status === filterStatus)
     setFiltered(result)
   }, [search, filterType, filterStatus, projects])
 
@@ -50,114 +49,144 @@ export default function ProjectsPage() {
       const data = await res.json()
       setProjects(data.projects || [])
       setFiltered(data.projects || [])
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 pt-0 pb-24">
-      {/* Dark header */}
-      <div className="bg-[#1a1a2e] text-white px-4 pt-8 pb-6 -mx-4 mb-4">
-        <Link href="/" className="text-sm text-[#94a3b8] hover:text-white mb-3 inline-block">
-          &larr; Voltar
-        </Link>
-        <h1 className="text-xl md:text-2xl font-display font-bold">Projetos &mdash; <span className="text-[#94a3b8] font-normal">{filtered.length} encontrados</span></h1>
+    <div style={{ maxWidth: 540, margin: '0 auto', minHeight: '100vh', background: C.cream, paddingBottom: 80 }}>
+      {/* Header */}
+      <div style={{ background: C.ink, padding: '52px 24px 24px' }}>
+        <a href="/" style={{
+          background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 10, padding: '7px 14px', color: 'rgba(255,255,255,0.7)',
+          cursor: 'pointer', fontSize: 13, marginBottom: 16, display: 'inline-block',
+          textDecoration: 'none',
+        }}>
+          &larr; Inicio
+        </a>
+        <h1 style={{ margin: 0, color: C.white, fontFamily: fonts.display, fontSize: 26, fontWeight: 600 }}>
+          Projetos
+        </h1>
+        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>
+          {filtered.length} encontrados
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Buscar projetos..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 shadow-sm"
-        />
-      </div>
+      <div style={{ padding: '20px 20px 0' }}>
+        {/* Search */}
+        <div style={{ position: 'relative', marginBottom: 14 }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar projetos..."
+            style={{ ...S.input, paddingLeft: 40 }}
+          />
+          <span style={{
+            position: 'absolute', left: 14, top: '50%',
+            transform: 'translateY(-50%)', color: C.mutedLight, fontSize: 14,
+          }}>
+            &#x2315;
+          </span>
+        </div>
 
-      {/* Filter tabs */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <div className="flex gap-1">
-          {(['all', 'amigurumi', 'tapestry'] as const).map(t => (
+        {/* Type filters */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', paddingBottom: 4 }}>
+          {[['all', 'Todos'], ['amigurumi', 'Amigurumi'], ['tapestry', 'Tapestry']].map(([v, l]) => (
             <button
-              key={t}
-              onClick={() => setFilterType(t)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                filterType === t
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-[#64748b] hover:bg-gray-200'
-              }`}
+              key={v}
+              onClick={() => setFilterType(v)}
+              style={{
+                padding: '7px 16px', borderRadius: 20, whiteSpace: 'nowrap',
+                border: `1.5px solid ${filterType === v ? C.sage : C.creamDark}`,
+                background: filterType === v ? C.sagePale : C.white,
+                color: filterType === v ? C.sageDark : C.muted,
+                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              }}
             >
-              {t === 'all' ? 'Todos' : t === 'amigurumi' ? 'Amigurumi' : 'Tapestry'}
+              {l}
+            </button>
+          ))}
+          <div style={{ width: 1, background: C.creamDark, margin: '0 4px' }} />
+          {[['all', 'Todos'], ['in_progress', 'Andamento'], ['completed', 'Concluidos'], ['not_started', 'Nao iniciados']].map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setFilterStatus(v)}
+              style={{
+                padding: '7px 16px', borderRadius: 20, whiteSpace: 'nowrap',
+                border: `1.5px solid ${filterStatus === v ? C.sageDark : C.creamDark}`,
+                background: filterStatus === v ? C.ink : C.white,
+                color: filterStatus === v ? C.white : C.muted,
+                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              {l}
             </button>
           ))}
         </div>
-        <div className="w-px bg-[#e2e8f0] mx-1" />
-        <div className="flex gap-1">
-          {(['all', 'in_progress', 'not_started', 'completed'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                filterStatus === s
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-[#64748b] hover:bg-gray-200'
-              }`}
-            >
-              {s === 'all' ? 'Todos' : statusLabel(s)}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Project Grid */}
-      {loading ? (
-        <div className="text-center py-12 text-[#64748b]">Carregando...</div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 border border-dashed border-[#e2e8f0] text-center">
-          <p className="text-[#64748b] mb-4">
-            {projects.length === 0
-              ? 'Nenhum projeto ainda'
-              : 'Nenhum projeto encontrado com esses filtros'}
-          </p>
-          <Link
-            href="/projetos/novo"
-            className="bg-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-purple-700 transition-colors inline-block"
-          >
-            Criar projeto
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {filtered.map((p) => (
-            <ProjectCard key={p.id} project={p} />
-          ))}
-        </div>
-      )}
+        {/* Grid */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 48, color: C.muted }}>Carregando...</div>
+        ) : filtered.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {filtered.map(p => (
+              <ProjectCard key={p.id} project={p} onClick={() => window.location.href = `/projetos/${p.id}`} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: 48, color: C.muted }}>
+            <div style={{ fontFamily: fonts.display, fontSize: 18, marginBottom: 8 }}>
+              Nenhum projeto encontrado
+            </div>
+            <a href="/projetos/novo" style={{ ...S.btnPrimary, display: 'inline-block', textDecoration: 'none' }}>
+              Criar projeto
+            </a>
+          </div>
+        )}
+      </div>
 
       {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#e2e8f0] px-4 py-2 z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-around">
-          <Link href="/" className="flex flex-col items-center text-[#64748b] hover:text-purple-600">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            <span className="text-xs mt-0.5">Inicio</span>
-          </Link>
-          <Link href="/projetos" className="flex flex-col items-center text-purple-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-            <span className="text-xs mt-0.5">Projetos</span>
-          </Link>
-          <Link href="/projetos/novo" className="flex flex-col items-center text-[#64748b] hover:text-purple-600">
-            <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center -mt-4 shadow-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-          </Link>
-        </div>
-      </nav>
+      <div style={{
+        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: 540,
+        background: 'rgba(253,252,251,0.93)', backdropFilter: 'blur(12px)',
+        borderTop: `1px solid ${C.creamDark}`, display: 'flex', padding: '8px 0 20px',
+        zIndex: 50,
+      }}>
+        {[
+          { s: 'home', icon: '\u2302', label: 'Inicio' },
+          { s: 'projects', icon: '\u25EB', label: 'Projetos' },
+          { s: 'create', icon: '+', label: 'Criar', special: true },
+        ].map(item => (
+          <a
+            key={item.s}
+            href={item.s === 'create' ? '/projetos/novo' : item.s === 'home' ? '/' : '/projetos'}
+            style={{
+              flex: 1, background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 3, padding: '6px 0', textDecoration: 'none',
+            }}
+          >
+            {item.special ? (
+              <div style={{
+                width: 44, height: 44, borderRadius: 14, background: C.sage,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, color: C.white, marginTop: -10,
+                boxShadow: `0 4px 16px ${C.sage}60`,
+              }}>
+                {item.icon}
+              </div>
+            ) : (
+              <>
+                <span style={{ fontSize: 18, color: '#b0a8a0' }}>{item.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: C.mutedLight, letterSpacing: 0.3 }}>
+                  {item.label}
+                </span>
+              </>
+            )}
+          </a>
+        ))}
+      </div>
     </div>
   )
 }

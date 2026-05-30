@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { C, S, fonts } from '@/lib/tokens'
 import { ProjectCard } from '@/components/ProjectCard'
 
 type Project = {
@@ -16,126 +16,219 @@ type Project = {
   pdfPath: string | null
 }
 
-export default function Home() {
-  const [inProgress, setInProgress] = useState<Project[]>([])
-  const [recentProjects, setRecentProjects] = useState<Project[]>([])
-  const [stats, setStats] = useState({ total: 0, inProgress: 0, completed: 0 })
+function fmtTime(s = 0) {
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : '\u2014'
+}
 
-  useEffect(() => {
-    fetchProjects()
-  }, [])
+export default function Home() {
+  const [projects, setProjects] = useState<Project[]>([])
+  const [screen, setScreen] = useState('home')
+
+  useEffect(() => { fetchProjects() }, [])
 
   async function fetchProjects() {
     try {
       const res = await fetch('/api/projects')
       const data = await res.json()
-      if (data.projects) {
-        const all = data.projects
-        setInProgress(all.filter((p: Project) => p.status === 'in_progress'))
-        setRecentProjects(all.slice(0, 4))
-        setStats({
-          total: all.length,
-          inProgress: all.filter((p: Project) => p.status === 'in_progress').length,
-          completed: all.filter((p: Project) => p.status === 'completed').length,
-        })
-      }
-    } catch (e) {
-      console.error(e)
-    }
+      setProjects(data.projects || [])
+    } catch (e) { console.error(e) }
   }
 
+  const inProgress = projects.filter(p => p.status === 'in_progress')
+  const completed = projects.filter(p => p.status === 'completed')
+
   return (
-    <div className="max-w-4xl mx-auto px-4 pt-8">
-      <div className="flex items-center justify-between mb-1">
-        <div>
-          <p className="text-sm text-[#64748b]">Ola, Usuaria</p>
-          <h1 className="text-2xl md:text-3xl font-display font-bold text-[#1a1a2e]">
-            Meu Atelie de Croche
-          </h1>
+    <div style={{ maxWidth: 540, margin: '0 auto', minHeight: '100vh', background: C.cream, paddingBottom: 80 }}>
+      {/* Header */}
+      <div style={{
+        background: C.ink, padding: '52px 24px 28px',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: -70, right: -70,
+          width: 220, height: 220, borderRadius: '50%',
+          background: `${C.sage}20`,
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -40, left: -40,
+          width: 160, height: 160, borderRadius: '50%',
+          background: `${C.sage}10`,
+        }} />
+        <div style={{ position: 'relative' }}>
+          <div>
+            <div style={{
+              fontSize: 11, color: C.sageLight, letterSpacing: 2,
+              textTransform: 'uppercase', marginBottom: 8,
+            }}>
+              Ola
+            </div>
+            <h1 style={{
+              margin: 0, color: C.white, fontFamily: fonts.display,
+              fontSize: 30, fontWeight: 600, lineHeight: 1.1,
+            }}>
+              Meu Atelie<br /><span style={{ color: C.sageLight, fontStyle: 'italic' }}>de Croche</span>
+            </h1>
+          </div>
+          <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
+            {[[projects.length, 'Total'], [inProgress.length, 'Andamento'], [completed.length, 'Concluidos']].map(([n, l]) => (
+              <div key={l}>
+                <div style={{ color: C.white, fontFamily: fonts.display, fontSize: 26, fontWeight: 600 }}>{n}</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 1 }}>{l}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-[#64748b] mb-6">
-        <span><strong className="text-[#1a1a2e]">{stats.total}</strong> Total</span>
-        <span className="w-1 h-1 rounded-full bg-[#cbd5e1]" />
-        <span><strong className="text-green-600">{stats.inProgress}</strong> Andamento</span>
-        <span className="w-1 h-1 rounded-full bg-[#cbd5e1]" />
-        <span><strong className="text-blue-600">{stats.completed}</strong> Concluidos</span>
-      </div>
-
-      {inProgress.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-[#1a1a2e] mb-3">Em andamento</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {inProgress.slice(0, 2).map((p) => (
-              <Link key={p.id} href={`/projetos/${p.id}`}>
-                <div className="bg-white rounded-2xl p-4 border border-[#e2e8f0] shadow-sm hover:shadow-md transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-lg shrink-0">
-                      {p.type === 'amigurumi' ? '\u{1F9F6}' : '\u{1F9F5}'}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm text-[#1a1a2e] truncate">{p.name}</p>
-                      <p className="text-xs text-[#64748b]">{p.type === 'amigurumi' ? 'Amigurumi' : 'Tapestry'}</p>
+      <div style={{ padding: '24px 20px 0' }}>
+        {/* In progress */}
+        {inProgress.length > 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h2 style={{ margin: 0, fontFamily: fonts.display, fontSize: 20, fontWeight: 600, color: C.ink }}>Em andamento</h2>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.warn }} />
+            </div>
+            {inProgress.map(p => (
+              <a
+                key={p.id}
+                href={`/projetos/${p.id}`}
+                style={{ textDecoration: 'none' }}
+              >
+                <div style={{
+                  ...S.card, display: 'flex', alignItems: 'center', gap: 14, padding: 14,
+                  cursor: 'pointer', marginBottom: 10, transition: 'box-shadow 0.18s',
+                }}>
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 12,
+                    background: p.coverImage ? `url(${p.coverImage}) center/cover` : C.sagePale,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 22, flexShrink: 0,
+                  }}>
+                    {!p.coverImage && (p.type === 'amigurumi' ? '\u{1F9F6}' : '\u{1F9F5}')}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: fonts.display, fontWeight: 600, fontSize: 16, color: C.ink }}>{p.name}</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                      {p.type === 'amigurumi' ? 'Amigurumi' : 'Tapestry'} &middot; {fmtTime(p.timerSeconds)}
                     </div>
                   </div>
-                  {p.timerSeconds > 0 && (
-                    <p className="text-xs text-[#64748b] mt-2 ml-[3.25rem]">
-                      {Math.floor(p.timerSeconds / 60)} min
-                    </p>
-                  )}
+                  <div style={{ color: C.stone, fontSize: 20 }}>&rsaquo;</div>
                 </div>
-              </Link>
+              </a>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/projetos/novo"
-          className="flex-1 bg-[#1a1a2e] text-white px-5 py-3 rounded-xl text-sm font-medium hover:bg-[#2a2a3e] transition-colors flex items-center justify-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Novo projeto
-        </Link>
-        <Link href="/projetos"
-          className="flex-1 bg-white border border-[#e2e8f0] text-[#1a1a2e] px-5 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors text-center">
-          Ver todos &ndash; {stats.total} projetos
-        </Link>
+        {inProgress.length === 0 && (
+          <div style={{
+            textAlign: 'center', padding: '32px 20px',
+            background: `${C.sage}0a`, borderRadius: 18, marginBottom: 28,
+            border: `1.5px dashed ${C.sage}50`,
+          }}>
+            <div style={{ fontFamily: fonts.display, fontSize: 20, color: C.ink, marginBottom: 6 }}>
+              Nenhum projeto ativo
+            </div>
+            <div style={{ fontSize: 13, color: C.muted }}>
+              Crie um projeto para comecar
+            </div>
+          </div>
+        )}
+
+        {/* Quick actions */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
+          <a href="/projetos/novo" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px 16px', borderRadius: 18, border: 'none', cursor: 'pointer',
+              background: C.sage, color: C.white, fontFamily: fonts.display,
+              fontSize: 16, fontWeight: 600, textAlign: 'left', lineHeight: 1.3,
+            }}>
+              <div style={{ fontSize: 26, marginBottom: 8, opacity: 0.85 }}>+</div>
+              Novo<br />projeto
+            </div>
+          </a>
+          <a href="/projetos" style={{ textDecoration: 'none' }}>
+            <div style={{
+              padding: '20px 16px', borderRadius: 18, border: `1.5px solid ${C.creamDark}`, cursor: 'pointer',
+              background: C.white, color: C.ink, fontFamily: fonts.display,
+              fontSize: 16, fontWeight: 600, textAlign: 'left', lineHeight: 1.3,
+            }}>
+              <div style={{ fontSize: 26, marginBottom: 8, opacity: 0.5 }}>&#x1F4C1;</div>
+              Ver todos<br />
+              <span style={{ fontSize: 13, fontFamily: fonts.body, fontWeight: 400, color: C.muted }}>
+                {projects.length} projetos
+              </span>
+            </div>
+          </a>
+        </div>
+
+        {/* Recent */}
+        {projects.length > 0 && (
+          <>
+            <h2 style={{
+              fontFamily: fonts.display, fontSize: 20, fontWeight: 600,
+              color: C.ink, margin: '0 0 14px',
+            }}>
+              Recentes
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {projects.slice(0, 4).map(p => (
+                <ProjectCard key={p.id} project={p} onClick={() => window.location.href = `/projetos/${p.id}`} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {recentProjects.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-[#1a1a2e] mb-3">Recentes</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {recentProjects.slice(0, 4).map((p) => (
-              <ProjectCard key={p.id} project={p} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#e2e8f0] px-4 py-2 z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-around">
-          <Link href="/" className="flex flex-col items-center text-purple-600">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            <span className="text-xs mt-0.5">Inicio</span>
-          </Link>
-          <Link href="/projetos" className="flex flex-col items-center text-[#64748b] hover:text-purple-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-            <span className="text-xs mt-0.5">Projetos</span>
-          </Link>
-          <Link href="/projetos/novo"
-            className="flex flex-col items-center text-[#64748b] hover:text-purple-600">
-            <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center -mt-4 shadow-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-          </Link>
-        </div>
-      </nav>
+      {/* Bottom Nav */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: 540,
+        background: 'rgba(253,252,251,0.93)', backdropFilter: 'blur(12px)',
+        borderTop: `1px solid ${C.creamDark}`, display: 'flex', padding: '8px 0 20px',
+        zIndex: 50,
+      }}>
+        {[
+          { s: 'home', icon: '\u2302', label: 'Inicio' },
+          { s: 'projects', icon: '\u25EB', label: 'Projetos' },
+          { s: 'create', icon: '+', label: 'Criar', special: true },
+        ].map(item => (
+          <a
+            key={item.s}
+            href={item.s === 'create' ? '/projetos/novo' : item.s === 'home' ? '/' : '/projetos'}
+            style={{
+              flex: 1, background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 3, padding: '6px 0', textDecoration: 'none',
+            }}
+          >
+            {item.special ? (
+              <div style={{
+                width: 44, height: 44, borderRadius: 14, background: C.sage,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, color: C.white, marginTop: -10,
+                boxShadow: `0 4px 16px ${C.sage}60`,
+              }}>
+                {item.icon}
+              </div>
+            ) : (
+              <>
+                <span style={{ fontSize: 18, color: screen === item.s ? C.sage : C.stone }}>
+                  {item.icon}
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 600,
+                  color: screen === item.s ? C.sage : C.mutedLight,
+                  letterSpacing: 0.3,
+                }}>
+                  {item.label}
+                </span>
+              </>
+            )}
+          </a>
+        ))}
+      </div>
     </div>
   )
 }
