@@ -229,11 +229,34 @@ export default function ProjectDetailPage() {
                         <div style={{ fontSize: 11, color: C.muted }}>{sec.rows.length} linha{sec.rows.length !== 1 ? 's' : ''}</div>
                       </div>
                       {sec.rows.map(r => (
-                        <div key={r.id} style={{ display: 'flex', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.cream}` }}>
-                          <div style={{ width: 20, height: 20, background: C.sagePale, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: C.sage, flexShrink: 0 }}>
-                            {r.line}
+                        <div key={r.id} style={{
+                          display: 'flex', gap: 12, padding: '10px 16px',
+                          borderBottom: `1px solid ${C.cream}`,
+                          background: r.type === 'note' ? `${C.info}06` : 'transparent',
+                        }}>
+                          <div style={{
+                            width: 20, height: 20, borderRadius: 5,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                            background: r.type === 'note' ? C.info : C.sagePale,
+                            color: C.white,
+                          }}>
+                            {r.type === 'note' ? '!' : r.line}
                           </div>
-                          <div style={{ fontSize: 13, color: C.inkLight, lineHeight: 1.6 }}>{r.instruction}</div>
+                          <div style={{ flex: 1 }}>
+                            {r.type === 'note' && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: C.info, textTransform: 'uppercase', letterSpacing: 1, marginRight: 6 }}>
+                                Nota:{' '}
+                              </span>
+                            )}
+                            <span style={{
+                              fontSize: 13, lineHeight: 1.6,
+                              color: r.type === 'note' ? C.info : C.inkLight,
+                              fontStyle: r.type === 'note' ? 'italic' : 'normal',
+                            }}>
+                              {r.instruction}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>

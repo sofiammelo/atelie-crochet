@@ -8,6 +8,7 @@ export type RecipeRow = {
   line: number
   instruction: string
   stitches?: string
+  type?: 'instruction' | 'note'
 }
 
 export type RecipeSection = {
@@ -126,17 +127,22 @@ export function RecipeEditor({
           {sec.rows.map(row => (
             <div key={row.id} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 7 }}>
               <div style={{
-                width: 22, height: 22, borderRadius: 6, background: C.sagePale,
+                width: 22, height: 22, borderRadius: 6,
+                background: row.type === 'note' ? C.info : C.sagePale,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 700, color: C.sage, flexShrink: 0,
+                fontSize: 11, fontWeight: 700, color: C.white, flexShrink: 0,
               }}>
-                {row.line}
+                {row.type === 'note' ? '!' : row.line}
               </div>
               <div style={{
-                flex: 1, fontSize: 13, color: C.inkLight,
-                background: C.cream, borderRadius: 8, padding: '6px 10px',
-                lineHeight: 1.5,
+                flex: 1, fontSize: 13, color: row.type === 'note' ? C.info : C.inkLight,
+                background: row.type === 'note' ? `${C.info}08` : C.cream,
+                borderRadius: 8, padding: '6px 10px',
+                lineHeight: 1.5, fontStyle: row.type === 'note' ? 'italic' : 'normal',
               }}>
+                {row.type === 'note' && (
+                  <span style={{ fontWeight: 700, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginRight: 4 }}>Nota: </span>
+                )}
                 {row.instruction}
               </div>
               <button

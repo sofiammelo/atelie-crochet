@@ -92,8 +92,12 @@ export function AmigurumiGuide({
             style={{
               ...S.card,
               padding: '14px 16px',
-              background: active ? C.sagePale : done ? `${C.success}0a` : C.white,
-              border: active ? `1.5px solid ${C.sage}` : done ? `1px solid ${C.success}30` : `1px solid ${C.creamDark}`,
+              background: row.type === 'note'
+                ? (active ? `${C.info}20` : done ? `${C.info}08` : `${C.info}0a`)
+                : (active ? C.sagePale : done ? `${C.success}0a` : C.white),
+              border: row.type === 'note'
+                ? (active ? `1.5px solid ${C.info}` : `1px solid ${C.info}30`)
+                : (active ? `1.5px solid ${C.sage}` : done ? `1px solid ${C.success}30` : `1px solid ${C.creamDark}`),
               opacity: done ? 0.65 : 1,
               cursor: 'pointer',
               transition: 'all 0.25s',
@@ -102,17 +106,23 @@ export function AmigurumiGuide({
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <div style={{
                 width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                background: active ? C.sage : done ? C.success : C.creamDark,
+                background: row.type === 'note' ? C.info : (active ? C.sage : done ? C.success : C.creamDark),
                 color: active || done ? C.white : C.muted,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 12, fontWeight: 700,
               }}>
-                {done ? '\u2713' : i + 1}
+                {row.type === 'note' ? '!' : (done ? '\u2713' : i + 1)}
               </div>
               <div style={{ flex: 1, paddingTop: 3 }}>
+                {row.type === 'note' && (
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.info, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>
+                    Nota
+                  </div>
+                )}
                 <div style={{
-                  fontSize: 14, color: active ? C.ink : done ? C.muted : C.inkLight,
-                  lineHeight: 1.6, fontWeight: active ? 500 : 400,
+                  fontSize: 14, color: row.type === 'note' ? (active ? C.info : C.info) : (active ? C.ink : done ? C.muted : C.inkLight),
+                  lineHeight: 1.6, fontWeight: row.type === 'note' ? (active ? 600 : 500) : (active ? 500 : 400),
+                  fontStyle: row.type === 'note' ? 'italic' : 'normal',
                 }}>
                   {row.instruction}
                 </div>
@@ -124,11 +134,12 @@ export function AmigurumiGuide({
               </div>
               {active && !done && (
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: C.sage,
-                  background: `${C.sage}18`, padding: '3px 8px',
+                  fontSize: 10, fontWeight: 700, color: row.type === 'note' ? C.info : C.sage,
+                  background: row.type === 'note' ? `${C.info}18` : `${C.sage}18`,
+                  padding: '3px 8px',
                   borderRadius: 20, whiteSpace: 'nowrap',
                 }}>
-                  AGORA
+                  {row.type === 'note' ? 'NOTA' : 'AGORA'}
                 </div>
               )}
             </div>

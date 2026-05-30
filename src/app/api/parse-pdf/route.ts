@@ -160,86 +160,124 @@ function estimatePDFPages(buffer: Buffer): number {
   return m ? m.length : 1
 }
 
-// ── Amigurumi section parser ──
-function parseSections(text: string) {
-  const sectionLabels = [
-    'cabeca', 'cabeça', 'corpo', 'bracos', 'braços', 'pernas',
-    'orelhas', 'olhos', 'focinho', 'chapeu', 'chapéu', 'boca',
-    'cabelo', 'rabo', 'asa', 'asas', 'antenas', 'casco',
-    'concha', 'flor', 'folha', 'tronco', 'pescoco', 'pescoço',
-  ]
+// ── Amigurumi section/round/note parser ──
+// Matches round patterns: R1, R2, R3-R5, Carreira 1:, Carr 1:, C1:, F1:
+const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+)\b/i
 
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-  const sections: { name: string; rows: string[] }[] = []
+// ── Detects if a line marks the start of a materials list ──
+const MATS_RE = /^(?:material|materiais|fios|lã|lãs|agulha|agulhas|necessário|necessarios)/i
+
+function isRoundLine(line: string): boolean {
+  return ROUND_RE.test(line.trim())
+}
+
+function parseSections(text: string) {
+  const rawLines = text.split('\n').map(l => l.trim())
+  const lines = rawLines.filter(Boolean)
   const materials: string[] = []
-  const notes: string[] = []
-  let current: { name: string; rows: string[] } | null = null
+  const sections: { name: string; rows: { instruction: string; type: 'instruction' | 'note' }[] }[] = []
+  let current: typeof sections[0] | null = null
+  let inMaterials = false
 
   for (const line of lines) {
-    const lower = line.toLowerCase().trim()
+    const lower = line.toLowerCase()
 
-    if (/material|materiais|fios|lã|lãs|agulha|agulhas/i.test(lower) && /[:]/.test(line)) {
-      if (current) sections.push(current)
-      current = null
+    // Detect materials block
+    if (!inMaterials && MATS_RE.test(lower) && (lower.includes(':') || lower.includes('-'))) {
+      inMaterials = true
       materials.push(line)
       continue
     }
-    if (materials.length > 0 && !sectionLabels.some(s => lower.includes(s)) && !/carreira|linha|volta|carr|ª|^[0-9]/.test(lower)) {
-      materials.push(line)
-      continue
+    if (inMaterials) {
+      // Stop when we hit a round line or a short line that looks like a section title
+      if (isRoundLine(line) || (line.length < 30 && /^[A-ZÀ-ÿ]/.test(line) && !lower.includes('gancho') && !lower.includes('color'))) {
+        inMaterials = false
+        // fall through to section/note detection below
+      } else {
+        materials.push(line)
+        continue
+      }
     }
 
-    const isSection = sectionLabels.some(s => {
-      const idx = lower.indexOf(s)
-      if (idx === -1) return false
-      const before = lower[idx - 1]
-      return !before || /[\s\-–—,:;(]/.test(before)
-    })
+    // Lines that start a new section: short, capitalized, and not a round
+    const looksLikeSectionTitle = line.length < 45
+      && /^[A-ZÀ-ÿ]/.test(line)
+      && !isRoundLine(line)
+      && !/^\d/.test(line)
+      && !lower.startsWith('nota')
+      && !lower.startsWith('obs')
 
-    if (isSection && line.length < 40) {
-      if (current) sections.push(current)
+    if (looksLikeSectionTitle && !inMaterials && !current && sections.length === 0) {
+      current = { name: line, rows: [] }
+      continue
+    }
+    if (looksLikeSectionTitle && current && current.rows.length === 0) {
+      // This is the section title (Ordem 1)
+      current.name = line
+      continue
+    }
+    if (looksLikeSectionTitle && current && current.rows.length > 0) {
+      // New section starts
+      sections.push(current)
       current = { name: line, rows: [] }
       continue
     }
 
-    if (/^nota|^obs|^dica|atencao|atenção/i.test(lower) || /nota:|obs:|dica:/i.test(lower)) {
-      notes.push(line)
-      continue
+    // If no section yet, this is the first section (receita)
+    if (!current) {
+      current = { name: 'Receita', rows: [] }
     }
 
-    if (current) {
-      current.rows.push(line)
+    // Detect if it's a note or a round
+    if (isRoundLine(line) || /^\d/.test(line) || /^(?:pb|aum|dis|corr|carr|am)/i.test(line)) {
+      current.rows.push({ instruction: line, type: 'instruction' })
+    } else if (current.rows.length === 0) {
+      // First line after title: if it doesn't look like a round, it's the title continuation
+      // Actually, let me check: in the user's model, the first row after section title can be a note
+      // Notes start with "Nota:" or "nota:" usually
+      if (lower.startsWith('nota') || lower.startsWith('obs') || lower.includes('nota:')) {
+        current.rows.push({ instruction: line, type: 'note' })
+      } else {
+        current.rows.push({ instruction: line, type: 'instruction' })
+      }
+    } else {
+      // Everything else after the first round is a note
+      current.rows.push({ instruction: line, type: 'note' })
     }
   }
 
   if (current) sections.push(current)
 
-  if (sections.length === 0 && materials.length === 0 && notes.length === 0) {
-    return { materials, sections: [{ name: 'Receita', rows: lines }], notes }
+  if (sections.length === 0 && lines.length > 0) {
+    sections.push({
+      name: 'Receita',
+      rows: lines.map(l => ({ instruction: l, type: isRoundLine(l) ? 'instruction' as const : 'note' as const })),
+    })
   }
 
-  return { materials, sections, notes }
+  return { materials, sections }
 }
 
 function buildRecipe(text: string, type: string) {
   if (type !== 'amigurumi') return ''
   if (!text.trim()) return ''
 
-  const { materials, sections, notes } = parseSections(text)
+  const { materials, sections } = parseSections(text)
 
+  let orderCounter = 1
   const recipe: any = {
     title: '',
     materials: materials.join('\n'),
-    sections: sections.map((s, i) => ({
-      id: `sec-${i}`,
-      name: s.name,
-      rows: s.rows.map((r, j) => ({
+    sections: sections.map((s, i) => {
+      // First row is the title (Ordem 1), remaining are numbered from 2
+      const rows = s.rows.map((r, j) => ({
         id: `row-${i}-${j}`,
-        line: j + 1,
-        instruction: r,
-      })),
-    })),
-    notes: notes.length > 0 ? notes : undefined,
+        line: j + 1, // Ordem within section (1 = title)
+        instruction: r.instruction,
+        type: r.type,
+      }))
+      return { id: `sec-${i}`, name: s.name, rows }
+    }),
   }
 
   return JSON.stringify(recipe)
