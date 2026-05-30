@@ -72,7 +72,7 @@ export function TapestryGuide({
                       width: cellSize, height: cellSize,
                       background: col,
                       opacity: done ? 0.55 : active ? 1 : 0.8,
-                      border: '0.5px solid rgba(0,0,0,0.25)',
+                      border: '1px solid rgba(0,0,0,0.4)',
                       boxSizing: 'border-box',
                     }} />
                   ))}
