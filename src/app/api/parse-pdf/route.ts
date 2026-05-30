@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// ── Step 1: Extract text with pdfjs-dist (text-based PDFs) ──
+const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
+
+// ── Step 1: Text via pdfjs-dist ──
 async function extractText(buffer: Buffer): Promise<string> {
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
@@ -14,62 +16,37 @@ async function extractText(buffer: Buffer): Promise<string> {
   return parts.join('\n\n')
 }
 
-// ── Step 1b: Try to get any text, even if garbled, using raw content items ──
-async function extractRawPdfjs(buffer: Buffer): Promise<string> {
-  try {
-    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
-    const parts: string[] = []
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i)
-      const tc = await page.getTextContent()
-      // Include ALL items even if single chars
-      const texts = tc.items.map((item: any) => item.str || '').join('')
-      if (texts.trim()) parts.push(texts.trim())
-    }
-    return parts.join('\n')
-  } catch { return '' }
-}
-
-// ── Step 2: Extract from operator list (catches text getTextContent misses) ──
+// ── Step 2: Extract from operator list ──
 async function extractFromOperators(buffer: Buffer): Promise<string> {
-  try {
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    const { getDocument } = pdfjsLib
-    const OPS = (pdfjsLib as any).OPS || {}
-    const showText = OPS.showText ?? 51
-    const showSpacedText = OPS.showSpacedText ?? 52
-    const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
-    const parts: string[] = []
-
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i)
-      const opList = await page.getOperatorList()
-      for (let j = 0; j < opList.fnArray.length; j++) {
-        const fn = opList.fnArray[j]
-        if (fn === showText || fn === showSpacedText) {
-          const args = opList.argsArray[j]
-          if (args?.[0]) {
-            const chars = args[0] as any[]
-            const text = chars
-              .filter((c: any) => typeof c === 'string')
-              .join('')
-            if (text.trim()) parts.push(text.trim())
-          }
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const { getDocument } = pdfjsLib
+  const OPS = (pdfjsLib as any).OPS || {}
+  const showText = OPS.showText ?? 51
+  const showSpacedText = OPS.showSpacedText ?? 52
+  const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
+  const parts: string[] = []
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i)
+    const opList = await page.getOperatorList()
+    for (let j = 0; j < opList.fnArray.length; j++) {
+      const fn = opList.fnArray[j]
+      if (fn === showText || fn === showSpacedText) {
+        const args = opList.argsArray[j]
+        if (args?.[0]) {
+          const text = (args[0] as any[]).filter((c: any) => typeof c === 'string').join('')
+          if (text.trim()) parts.push(text.trim())
         }
       }
     }
-    return parts.join(' ')
-  } catch {
-    return ''
   }
+  return parts.join(' ')
 }
 
-// ── Step 3: OCR with sharp + tesseract.js ──
+// ── Step 3: OCR (sharp + canvas + tesseract) ──
 async function ocrFallback(buffer: Buffer): Promise<string> {
   let images: Buffer[] = []
 
-  // 3a) Try sharp PDF render
+  // sharp PDF render
   try {
     const sharp = (await import('sharp')).default
     const pageCount = estimatePDFPages(buffer)
@@ -77,19 +54,17 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
       try {
         const img = sharp(buffer, { page: p, pages: 1 })
         const meta = await img.metadata()
-        if (meta.width && meta.height) {
-          images.push(await img.png().toBuffer())
-        }
+        if (meta.width && meta.height) images.push(await img.png().toBuffer())
       } catch { /* skip */ }
     }
   } catch { /* sharp not available */ }
 
-  // 3b) Try pdfjs-dist + canvas (Vercel Linux)
+  // pdfjs-dist + canvas (Vercel Linux)
   if (images.length === 0) {
     try {
       const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
       let Canvas: any
-      try { Canvas = eval('require')('canvas') } catch { Canvas = null }
+      try { Canvas = Function('return require("canvas")')() } catch { Canvas = null }
       if (Canvas) {
         const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
         for (let i = 1; i <= Math.min(doc.numPages, 20); i++) {
@@ -108,7 +83,7 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
 
   try {
     const { createWorker } = await import('tesseract.js')
-    const worker = await createWorker('por+eng')
+    const worker = await createWorker('por+eng+spa')
     let full = ''
     for (const img of images) {
       const { data } = await worker.recognize(img)
@@ -116,100 +91,29 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
     }
     await worker.terminate()
     return full.trim()
-  } catch {
-    return ''
-  }
+  } catch { return '' }
 }
 
-// ── Step 4: Raw strings from PDF binary ──
-function extractRawStrings(buffer: Buffer): string {
-  const raw = buffer.toString('binary')
-
-  // 4a) Standard text operators: (text) Tj / (text) ' / (text) "
-  const stdOps = raw.match(/\(([^)]+)\)\s*(Tj|'|")/g) || []
-  const stdTexts = stdOps
-    .map(m => { const i = m.match(/^\(([^)]+)\)/); return i ? i[1] : '' })
-    .filter(t => !/^[0-9\s\-./,]*$/.test(t)) // skip pure numbers
-
-  // 4b) Array text operators: [(text) kern (text)] TJ
-  const arrOps = raw.match(/\[([\s\S]*?)\]\s*TJ/g) || []
-  const arrTexts = arrOps.flatMap(arr => {
-    const parts = arr.match(/\(([^)]*)\)/g) || []
-    return parts.map(p => p.slice(1, -1)).join(' ')
-  })
-
-  // 4c) Hex strings: <hex> Tj — try UTF-8 then UTF-16BE
-  const hexOps = raw.match(/<([0-9A-Fa-f]+)>\s*Tj/g) || []
-  const hexTexts = hexOps.map(m => {
-    const hex = m.match(/<([0-9A-Fa-f]+)>/)
-    if (!hex) return ''
-    const buf = Buffer.from(hex[1], 'hex')
-    const utf8 = buf.toString('utf8')
-    if (/^[\x20-\x7E\u00A0-\u00FF\u0100-\u024F\s]+$/.test(utf8)) return utf8
-    // Try UTF-16BE
-    const utf16 = buf.toString('utf16le')
-    if (/^[\x20-\x7E\u00A0-\u00FF\u0100-\u024F\s]+$/.test(utf16)) return utf16
-    return ''
-  }).filter(Boolean)
-
-  // 4d) Text-like runs: only accept sequences with actual word separators
-  const textRuns = raw.match(/[\x20-\x7E\u00C0-\u00FF]{8,}/g) || []
-  const textRunsClean = textRuns.filter(t => {
-    const lower = t.toLowerCase()
-    if (CROCHET_WORDS.test(lower)) return true
-    // Must have multiple space-separated words (real sentences)
-    const words = t.split(/\s+/).filter(Boolean)
-    if (words.length >= 3) return true
-    // Or have real word patterns: letter sequences separated by punctuation
-    const letterTokens = t.split(/[\s,;:.]+/).filter(w => /[A-Za-z\u00C0-\u00FF]{3,}/.test(w))
-    if (letterTokens.length >= 2) return true
-    return false
-  })
-
-  const all = [...stdTexts, ...arrTexts, ...hexTexts, ...textRunsClean]
-    .filter(t => looksReadable(t))
-
-  return Array.from(new Set(all)).join('\n')
-}
-
-// Heuristic: does this look like human-readable text?
-function looksReadable(s: string): boolean {
-  if (s.length < 4) return false
-  const bad = s.replace(/[\x20-\x7E\u00A0-\u00FF\u0100-\u024F]/g, '')
-  if (bad.length / s.length > 0.2) return false
-  if (!/[A-Za-z\u00C0-\u00FF]/.test(s)) return false
-  // Single token is OK if it has more than 2 letters with Portuguese accents
-  const tokens = s.split(/[\s,;:]+/).filter(Boolean)
-  if (tokens.length < 2) {
-    if (s.length >= 12) return true
-    const letters = s.replace(/[^A-Za-z\u00C0-\u00FF]/g, '')
-    if (letters.length >= 4) return true
-    return false
-  }
-  if (/^[0-9A-Fa-f]+$/.test(s.replace(/[\s]/g, ''))) return false
-  return true
-}
-
-// ── Heuristic PDF page count ──
+// ── Page count heuristic ──
 function estimatePDFPages(buffer: Buffer): number {
   const raw = buffer.toString('binary')
   const m = raw.match(/\/Type\s*\/Page[^s]/g)
   return m ? m.length : 1
 }
 
-// ── Common terms in PT / ES / EN ──
-const CROCHET_WORDS = /carreira|carr|amigurumi|linha|volta|vuelta|ronda|round|rnd\b|material|materiais|fio|fios|lã|lãs|agulha|agulhas|aguja|gancho|ganchillo|hook|needle|recheio|relleno|stuffing|fiberfill|enchimento|corpo|cuerpo|body|cabeça|cabeza|cabecera|head|braço|brazo|arm|perna|pierna|leg|orelha|oreja|ear|olho|ojo|eye|focinho|hocico|snout|pb\b|sc\b|aum\b|inc\b|dis\b|dec\b|cad\b|ch\b|am\b|mr\b/i
-
-// Matches round patterns: R1, R2, R3-R5, Carreira 1:, Carr 1:, C1:, F1:, Round 1:, Rnd 1:, Vuelta 1:
-const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
-
-// Detects materials header
-const MATS_RE = /^(?:material|materiais|fios|lã|lãs|agulha|agulhas|necessário|necessarios|necesario|materiales|hilo|hilos|yarn|supplies)/i
-
-function isRoundLine(line: string): boolean {
-  return ROUND_RE.test(line.trim())
+// ── Validates extracted text has real crochet content ──
+function hasRealCrochetText(text: string): boolean {
+  const lower = text.toLowerCase()
+  let count = 0
+  const patterns = ['carreira', 'carr', 'amigurumi', 'linha', 'volta', 'vuelta', 'ronda', 'round', 'rnd', 'material', 'materiais', 'fio', 'fios', 'lã', 'agulha', 'aguja', 'gancho', 'hook', 'needle', 'recheio', 'relleno', 'corpo', 'cuerpo', 'body', 'cabeça', 'cabeza', 'head', 'braço', 'brazo', 'arm', 'perna', 'pierna', 'leg', 'orelha', 'oreja', 'ear', 'olho', 'ojo', 'eye', 'pb', 'sc', 'aum', 'inc', 'dis', 'dec', 'cad', 'ch', 'am', 'mr']
+  for (const p of patterns) {
+    if (lower.includes(p)) count++
+    if (count >= 2) return true
+  }
+  return false
 }
 
+// ── Amigurumi section/round/note parser ──
 function parseSections(text: string) {
   const rawLines = text.split('\n').map(l => l.trim())
   const lines = rawLines.filter(Boolean)
@@ -221,77 +125,42 @@ function parseSections(text: string) {
   for (const line of lines) {
     const lower = line.toLowerCase()
 
-    // Detect materials block
-    if (!inMaterials && (MATS_RE.test(lower) || /^material|^supplies|^yarn|^hilo/i.test(lower)) && (lower.includes(':') || lower.includes('-'))) {
+    if (!inMaterials && (lower.includes('material') || lower.includes('fio') || lower.includes('agulha') || lower.includes('aguja') || lower.includes('hook') || lower.includes('yarn') || lower.includes('supplies') || lower.includes('hilo') || lower.includes('lã'))) {
       inMaterials = true
       materials.push(line)
       continue
     }
     if (inMaterials) {
-      // Stop when we hit a round line or a short line that looks like a section title
-      if (isRoundLine(line) || (line.length < 30 && /^[A-ZÀ-ÿ]/.test(line) && !lower.includes('gancho') && !lower.includes('color'))) {
+      if (ROUND_RE.test(line) || (line.length < 30 && /^[A-ZÀ-ÿ]/.test(line) && !lower.includes('gancho') && !lower.includes('color'))) {
         inMaterials = false
-        // fall through to section/note detection below
       } else {
         materials.push(line)
         continue
       }
     }
 
-    // Lines that start a new section: short, capitalized, and not a round
-    const looksLikeSectionTitle = line.length < 45
-      && /^[A-ZÀ-ÿ]/.test(line)
-      && !isRoundLine(line)
-      && !/^\d/.test(line)
-      && !lower.startsWith('nota')
-      && !lower.startsWith('obs')
+    const looksLikeSectionTitle = line.length < 45 && /^[A-ZÀ-ÿ]/.test(line) && !ROUND_RE.test(line) && !/^\d/.test(line)
 
-    if (looksLikeSectionTitle && !inMaterials && !current && sections.length === 0) {
-      current = { name: line, rows: [] }
-      continue
-    }
-    if (looksLikeSectionTitle && current && current.rows.length === 0) {
-      // This is the section title (Ordem 1)
-      current.name = line
-      continue
-    }
-    if (looksLikeSectionTitle && current && current.rows.length > 0) {
-      // New section starts
+    if (looksLikeSectionTitle && !inMaterials) {
+      if (!current) { current = { name: line, rows: [] }; continue }
+      if (current.rows.length === 0) { current.name = line; continue }
       sections.push(current)
       current = { name: line, rows: [] }
       continue
     }
 
-    // If no section yet, this is the first section (receita)
-    if (!current) {
-      current = { name: 'Receita', rows: [] }
-    }
+    if (!current) current = { name: 'Receita', rows: [] }
 
-    // Detect if it's a note or a round
-    if (isRoundLine(line) || /^\d/.test(line) || /^(?:pb|aum|dis|corr|carr|am)/i.test(line)) {
+    if (ROUND_RE.test(line) || /^\d/.test(line) || /^(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr)/i.test(line)) {
       current.rows.push({ instruction: line, type: 'instruction' })
-    } else if (current.rows.length === 0) {
-      // First line after title: if it doesn't look like a round, it's the title continuation
-      // Actually, let me check: in the user's model, the first row after section title can be a note
-      // Notes start with "Nota:" or "nota:" usually
-      if (lower.startsWith('nota') || lower.startsWith('obs') || lower.includes('nota:')) {
-        current.rows.push({ instruction: line, type: 'note' })
-      } else {
-        current.rows.push({ instruction: line, type: 'instruction' })
-      }
     } else {
-      // Everything else after the first round is a note
       current.rows.push({ instruction: line, type: 'note' })
     }
   }
 
   if (current) sections.push(current)
-
   if (sections.length === 0 && lines.length > 0) {
-    sections.push({
-      name: 'Receita',
-      rows: lines.map(l => ({ instruction: l, type: isRoundLine(l) ? 'instruction' as const : 'note' as const })),
-    })
+    sections.push({ name: 'Receita', rows: lines.map(l => ({ instruction: l, type: 'instruction' as const })) })
   }
 
   return { materials, sections }
@@ -300,25 +169,21 @@ function parseSections(text: string) {
 function buildRecipe(text: string, type: string) {
   if (type !== 'amigurumi') return ''
   if (!text.trim()) return ''
-
   const { materials, sections } = parseSections(text)
-
-  let orderCounter = 1
   const recipe: any = {
     title: '',
     materials: materials.join('\n'),
-    sections: sections.map((s, i) => {
-      // First row is the title (Ordem 1), remaining are numbered from 2
-      const rows = s.rows.map((r, j) => ({
+    sections: sections.map((s, i) => ({
+      id: `sec-${i}`,
+      name: s.name,
+      rows: s.rows.map((r, j) => ({
         id: `row-${i}-${j}`,
-        line: j + 1, // Ordem within section (1 = title)
+        line: j + 1,
         instruction: r.instruction,
         type: r.type,
-      }))
-      return { id: `sec-${i}`, name: s.name, rows }
-    }),
+      })),
+    })),
   }
-
   return JSON.stringify(recipe)
 }
 
@@ -336,23 +201,42 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes)
 
     let text = ''
-    try { text = await extractText(buffer) } catch (e: any) { console.warn('pdfjs err:', e?.message) }
-    if (!text.trim()) {
-      try { text = await extractRawPdfjs(buffer) } catch (e: any) { console.warn('raw pdfjs err:', e?.message) }
-    }
-    if (!text.trim()) {
-      try { text = await extractFromOperators(buffer) } catch (e: any) { console.warn('oplist err:', e?.message) }
-    }
-    if (!text.trim()) {
-      try { text = await ocrFallback(buffer) } catch (e: any) { console.warn('ocr err:', e?.message) }
-    }
-    if (!text.trim()) {
-      text = extractRawStrings(buffer)
+    let method = ''
+
+    // Step 1: pdfjs getTextContent (most reliable)
+    try {
+      text = await extractText(buffer)
+      if (text.trim()) method = 'pdfjs-text'
+    } catch (e: any) {
+      console.warn('pdfjs-text error:', e?.message?.slice(0, 200))
     }
 
-    // Reject if no real crochet words found
-    const hasRealContent = CROCHET_WORDS.test(text.toLowerCase())
-    if (text.trim() && !hasRealContent) {
+    // Step 2: pdfjs operator list
+    if (!text.trim()) {
+      try {
+        text = await extractFromOperators(buffer)
+        if (text.trim()) method = 'pdfjs-operators'
+      } catch (e: any) {
+        console.warn('pdfjs-operators error:', e?.message?.slice(0, 200))
+      }
+    }
+
+    // Step 3: OCR (requires sharp or canvas)
+    if (!text.trim()) {
+      try {
+        text = await ocrFallback(buffer)
+        if (text.trim()) method = 'ocr'
+        console.warn('ocr result length:', text.length)
+      } catch (e: any) {
+        console.warn('ocr error:', e?.message?.slice(0, 200))
+      }
+    }
+
+    console.warn(`pdf-parse result: method=${method || 'none'}, text.length=${text.length}`)
+
+    // Validate content has real crochet words (only if we got text)
+    if (text.trim() && !hasRealCrochetText(text)) {
+      console.warn('pdf-parse: text failed crochet validation, discarding')
       text = ''
     }
 
