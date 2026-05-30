@@ -251,7 +251,13 @@ export default function NewProjectPage() {
                   <>
                     <div style={{ fontWeight: 600, fontSize: 14, color: C.sageDark }}>{pdfFile.name}</div>
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                      {pdfText ? `${pdfText.split('\n').length} linhas extraídas` : 'Nenhum texto encontrado'}
+                      {parsedRecipe ? (
+                        `${parsedRecipe.sections?.length || 0} seções encontradas`
+                      ) : pdfText ? (
+                        'Texto extraído com sucesso'
+                      ) : (
+                        'Nenhum texto encontrado'
+                      )}
                     </div>
                   </>
                 ) : (
@@ -268,7 +274,17 @@ export default function NewProjectPage() {
                 {pdfError}
               </div>
             )}
-            {pdfText && (
+            {parsedRecipe && (
+              <div style={{ marginTop: 8, padding: 12, borderRadius: 10, background: C.sagePale, border: `1px solid ${C.sage}40`, fontSize: 12, color: C.inkLight, lineHeight: 1.6 }}>
+                <strong>Materiais:</strong> {parsedRecipe.materials?.substring(0, 100) || '—'}
+                <br />
+                <strong>Seções:</strong> {(parsedRecipe.sections || []).map((s: any) => s.name).join(', ')}
+                {parsedRecipe.notes?.length > 0 && (
+                  <><br /><strong>Notas:</strong> {parsedRecipe.notes.join('; ')}</>
+                )}
+              </div>
+            )}
+            {!parsedRecipe && pdfText && (
               <div style={{ marginTop: 8, padding: 12, borderRadius: 10, background: C.cream, border: `1px solid ${C.creamDark}`, maxHeight: 120, overflowY: 'auto', fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
                 {pdfText.substring(0, 400)}{pdfText.length > 400 ? '...' : ''}
               </div>

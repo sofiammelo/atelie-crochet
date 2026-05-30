@@ -22,9 +22,11 @@ export async function POST(request: NextRequest) {
         status: body.status || 'not_started',
         description: body.description || '',
         patternText: body.patternText || '',
+        recipe: body.recipe || '{}',
         pixelWidth: body.pixelWidth || null,
         pixelHeight: body.pixelHeight || null,
         pixelData: body.pixelData || null,
+        originalImage: body.originalImage || null,
       },
     })
     return NextResponse.json({ project }, { status: 201 })
