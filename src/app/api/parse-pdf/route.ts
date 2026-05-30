@@ -2,29 +2,41 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
 
-// ── Canvas loader: try multiple strategies ──
+// ── Canvas loader ──
 async function loadCanvas(): Promise<any> {
-  // 1) Dynamic import (ESM)
-  try {
-    // @ts-expect-error canvas may not be installed
-    const mod = await import('canvas')
-    return mod.default || mod
-  } catch {}
-  // 2) require (CJS) — available in Next.js route handlers
-  try {
-    return require('canvas')
-  } catch {}
-  // 3) Function-based require (bypasses webpack analysis)
-  try {
-    return Function('return require("canvas")')()
-  } catch {}
-  // 4) @napi-rs/canvas (alternative native canvas)
-  try {
-    // @ts-expect-error @napi-rs/canvas may not be installed
-    const mod = await import('@napi-rs/canvas')
-    return mod.createCanvas ? mod : null
-  } catch {}
+  // @napi-rs/canvas (prebuilt for Windows + Linux)
+  try { return Function('return require("@napi-rs/canvas")')() } catch {}
+  // node-canvas fallback (prebuilt for Linux only)
+  try { return Function('return require("canvas")')() } catch {}
   return null
+}
+
+// ── Render PDF pages to PNG buffers ──
+async function renderPages(buffer: Buffer): Promise<Buffer[]> {
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
+  const Canvas = await loadCanvas()
+  if (!Canvas) return []
+
+  const images: Buffer[] = []
+  for (let i = 1; i <= Math.min(doc.numPages, 20); i++) {
+    try {
+      const page = await doc.getPage(i)
+      const vp = page.getViewport({ scale: 1.5 })
+      const w = Math.floor(vp.width)
+      const h = Math.floor(vp.height)
+      const create = Canvas.createCanvas || Canvas
+      const c = create(w, h)
+      const ctx = c.getContext('2d')
+      await page.render({ canvasContext: ctx, viewport: vp }).promise
+      const toBuf = c.toBuffer
+      if (toBuf) {
+        const png = toBuf.call(c, 'image/png')
+        if (png && png.length > 100) images.push(Buffer.from(png))
+      }
+    } catch { /* page render failed, skip */ }
+  }
+  return images
 }
 
 // ── Step 1: Text via pdfjs-dist ──
@@ -67,44 +79,26 @@ async function extractFromOperators(buffer: Buffer): Promise<string> {
   return parts.join(' ')
 }
 
-// ── Step 3: OCR (sharp + canvas + tesseract) ──
+// ── Step 3: OCR (render + tesseract) ──
 async function ocrFallback(buffer: Buffer): Promise<string> {
   let images: Buffer[] = []
 
-  // 3a) sharp PDF render (try pages 0-9, skip page count heuristic)
+  // Try sharp PDF render (works on Linux with poppler)
   try {
     const sharp = (await import('sharp')).default
     for (let p = 0; p < 10; p++) {
       try {
-        const img = sharp(buffer, { page: p, pages: 1 })
-        const png = await img.png().toBuffer()
+        const png = await sharp(buffer, { page: p, pages: 1 }).png().toBuffer()
         if (png.length > 100) images.push(png)
       } catch { break }
     }
-  } catch { /* sharp not available */ }
+  } catch { /* sharp not available or no PDF support */ }
 
-  // 3b) pdfjs-dist + canvas (node-canvas or @napi-rs/canvas)
+  // Try pdfjs-dist + canvas render
   if (images.length === 0) {
-    const Canvas = await loadCanvas()
-    if (Canvas) {
-      try {
-        const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
-        const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
-        for (let i = 1; i <= Math.min(doc.numPages, 20); i++) {
-          const page = await doc.getPage(i)
-          const vp = page.getViewport({ scale: 1.5 })
-          const create = Canvas.createCanvas || Canvas
-          const c = create(Math.floor(vp.width), Math.floor(vp.height))
-          const ctx = c.getContext('2d')
-          await page.render({ canvasContext: ctx, viewport: vp }).promise
-          const toBuf = c.toBuffer || (c as any).toBuffer
-          if (toBuf) {
-            const png = toBuf.call(c, 'image/png')
-            if (png && png.length > 100) images.push(Buffer.from(png))
-          }
-        }
-      } catch { /* pdfjs+canvas render failed */ }
-    }
+    try {
+      images = await renderPages(buffer)
+    } catch { /* canvas render failed */ }
   }
 
   if (images.length === 0) return ''
@@ -244,8 +238,6 @@ export async function POST(request: NextRequest) {
     // Step 3: OCR
     if (!text.trim()) {
       try {
-        const canvas = await loadCanvas()
-        diag.push(canvas ? 'canvas loaded' : 'no canvas')
         text = await ocrFallback(buffer)
         if (text.trim()) { method = 'ocr'; diag.push('ocr ok') }
         else diag.push('ocr empty')
@@ -254,7 +246,7 @@ export async function POST(request: NextRequest) {
 
     // Validate
     if (text.trim() && !hasRealCrochetText(text)) {
-      diag.push('failed crochet validation')
+      diag.push('failed validation')
       text = ''
     }
 
