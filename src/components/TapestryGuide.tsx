@@ -1,6 +1,6 @@
 'use client'
 
-import { C, S, fonts } from '@/lib/tokens'
+import { C, S } from '@/lib/tokens'
 
 export function TapestryGuide({
   grid,
@@ -27,7 +27,7 @@ export function TapestryGuide({
           Linha atual
         </div>
         <div style={{
-          fontFamily: fonts.display, fontSize: 32, fontWeight: 600,
+          fontSize: 32, fontWeight: 600,
           color: C.ink, marginBottom: 14,
         }}>
           {currentRow + 1} <span style={{ fontSize: 16, fontWeight: 400, color: C.muted }}>de {rows}</span>
@@ -96,7 +96,7 @@ export function TapestryGuide({
           background: `${C.success}15`, borderRadius: 16,
           border: `1px solid ${C.success}40`,
         }}>
-          <div style={{ fontFamily: fonts.display, fontSize: 22, color: C.success, fontWeight: 600 }}>
+          <div style={{ fontSize: 22, color: C.success, fontWeight: 600 }}>
             Projeto concluido!
           </div>
         </div>

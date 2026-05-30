@@ -24,14 +24,14 @@ export const S = {
     boxShadow: '0 1px 8px rgba(42,37,32,0.06)',
   },
   input: {
-    width: '100%',
+    width: '100%' as const,
     padding: '12px 14px',
     borderRadius: 10,
     border: `1.5px solid ${C.creamDark}`,
     background: C.cream,
     fontSize: 14,
     color: C.ink,
-    outline: 'none',
+    outline: 'none' as const,
     boxSizing: 'border-box' as const,
     fontFamily: 'inherit',
   },
@@ -77,7 +77,7 @@ export const S = {
 }
 
 export const fonts = {
-  display: '"Playfair Display", Georgia, serif',
+  display: 'Inter, system-ui, sans-serif',
   body: 'Inter, system-ui, sans-serif',
   mono: '"JetBrains Mono", "Fira Code", monospace',
 }

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { C, S, fonts } from '@/lib/tokens'
+import { C, S } from '@/lib/tokens'
 import { AmigurumiGuide } from '@/components/AmigurumiGuide'
 import { TapestryGuide } from '@/components/TapestryGuide'
 import { RecipeEditor, parseRecipe, emptyRecipe, type Recipe } from '@/components/RecipeEditor'
@@ -29,18 +29,17 @@ type Project = {
 }
 
 function fmtDate(s: string) {
-  const d = new Date(s)
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+  return new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
 function useTimer(init = 0) {
   const [secs, setSecs] = useState(init)
   const [running, setRunning] = useState(false)
-  const ref2 = useRef<ReturnType<typeof setInterval> | null>(null)
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null)
   useEffect(() => {
-    if (running) ref2.current = setInterval(() => setSecs(s => s + 1), 1000)
-    else if (ref2.current) clearInterval(ref2.current)
-    return () => { if (ref2.current) clearInterval(ref2.current) }
+    if (running) ref.current = setInterval(() => setSecs(s => s + 1), 1000)
+    else if (ref.current) { clearInterval(ref.current); ref.current = null }
+    return () => { if (ref.current) clearInterval(ref.current) }
   }, [running])
 
   const fmt = (s: number) =>
@@ -62,9 +61,7 @@ export default function ProjectDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const timer = useTimer(0)
 
-  useEffect(() => {
-    if (params.id) fetchProject()
-  }, [params.id])
+  useEffect(() => { if (params.id) fetchProject() }, [params.id])
 
   async function fetchProject() {
     try {
@@ -91,7 +88,6 @@ export default function ProjectDetailPage() {
     } catch (e) { console.error(e) }
   }
 
-  // Save timer on pause
   useEffect(() => {
     if (!timer.running && project) {
       updateProject({ timerSeconds: timer.secs })
@@ -107,401 +103,291 @@ export default function ProjectDetailPage() {
     { id: 'settings', label: 'Opcoes', icon: '\u2699' },
   ]
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ color: C.muted, fontSize: 14 }}>Carregando...</div>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: C.cream }}>
+      <div style={{ color: C.muted, fontSize: 14 }}>Carregando...</div>
+    </div>
+  )
 
-  if (!project) {
-    return (
-      <div style={{ minHeight: '100vh', background: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 14, color: C.muted, marginBottom: 12 }}>Projeto nao encontrado</div>
-          <a href="/projetos" style={{ ...S.btnPrimary, textDecoration: 'none' }}>Ver projetos</a>
-        </div>
+  if (!project) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: C.cream }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 14, color: C.muted, marginBottom: 12 }}>Projeto nao encontrado</div>
+        <a href="/projetos" style={{ ...S.btnPrimary, textDecoration: 'none' }}>Ver projetos</a>
       </div>
-    )
-  }
+    </div>
+  )
 
   let pixelGrid: string[][] = []
   if (project.pixelData) { try { pixelGrid = JSON.parse(project.pixelData) } catch {} }
 
   return (
-    <div style={{ maxWidth: 540, margin: '0 auto', minHeight: '100vh', background: C.cream, paddingBottom: 80 }}>
-      {/* Hero */}
-      <div style={{
-        background: `linear-gradient(135deg, ${C.sageDark} 0%, ${C.ink} 100%)`,
-        padding: '52px 20px 28px', position: 'relative',
-      }}>
-        <a href="/projetos" style={{
-          position: 'absolute', top: 16, left: 16,
-          background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10,
-          padding: '7px 14px', color: '#fff', cursor: 'pointer',
-          fontSize: 13, textDecoration: 'none',
+    <div className="min-h-screen" style={{ background: C.cream, paddingBottom: 80 }}>
+      <div className="max-w-4xl mx-auto">
+        {/* Hero */}
+        <div style={{
+          background: `linear-gradient(135deg, ${C.sageDark} 0%, ${C.ink} 100%)`,
+          padding: '52px 20px 28px', position: 'relative',
         }}>
-          &larr; Voltar
-        </a>
-        <div style={{ marginTop: 8 }}>
-          <div style={{
-            fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 2,
-            textTransform: 'uppercase', marginBottom: 6,
-          }}>
-            {project.type === 'amigurumi' ? 'Amigurumi' : 'Tapestry / Jacquard'}
-          </div>
-          <h1 style={{
-            margin: 0, color: '#fff', fontFamily: fonts.display,
-            fontSize: 28, fontWeight: 600, lineHeight: 1.2,
-          }}>
-            {project.name}
-          </h1>
-          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 8 }}>
-            Criado em {fmtDate(project.createdAt)} &middot; {timer.fmtShort(timer.secs)}
+          <a href="/projetos" style={{
+            background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10,
+            padding: '7px 14px', color: '#fff', fontSize: 13, textDecoration: 'none', display: 'inline-block',
+          }}>&larr; Voltar</a>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+              {project.type === 'amigurumi' ? 'Amigurumi' : 'Tapestry / Jacquard'}
+            </div>
+            <h1 style={{ margin: 0, color: '#fff', fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}>
+              {project.name}
+            </h1>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 8 }}>
+              Criado em {fmtDate(project.createdAt)} &middot; {timer.fmtShort(timer.secs)}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', background: C.white, borderBottom: `1px solid ${C.creamDark}` }}>
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{
+        {/* Tabs */}
+        <div style={{ display: 'flex', background: C.white, borderBottom: `1px solid ${C.creamDark}` }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
               flex: 1, padding: '13px 4px', border: 'none', background: 'none', cursor: 'pointer',
-              fontSize: 11, fontWeight: 600,
-              color: tab === t.id ? C.sage : C.mutedLight,
-              borderBottom: tab === t.id ? `2px solid ${C.sage}` : '2px solid transparent',
-              marginBottom: -1,
-            }}
-          >
-            <div style={{ fontSize: 15, marginBottom: 2 }}>{t.icon}</div>
-            {t.label}
-          </button>
-        ))}
-      </div>
+              fontSize: 11, fontWeight: 600, color: tab === t.id ? C.sage : C.mutedLight,
+              borderBottom: tab === t.id ? `2px solid ${C.sage}` : '2px solid transparent', marginBottom: -1,
+            }}>
+              <div style={{ fontSize: 15, marginBottom: 2 }}>{t.icon}</div>
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Body */}
-      <div style={{ padding: '20px 16px 0' }}>
-        {/* GUIDE */}
-        {tab === 'guide' && project.type === 'amigurumi' && (
-          <AmigurumiGuide
-            recipe={recipe}
-            currentLine={project.currentLine || 0}
-            onUpdateLine={(line) => updateProject({
-              currentLine: line,
-              status: line > 0 ? 'in_progress' : project.status,
-            })}
-          />
-        )}
+        {/* Body */}
+        <div style={{ padding: '20px 16px 0' }}>
+          {/* GUIDE — Amigurumi */}
+          {tab === 'guide' && project.type === 'amigurumi' && (
+            <AmigurumiGuide
+              recipe={recipe}
+              currentLine={project.currentLine || 0}
+              onUpdateLine={(line) => updateProject({ currentLine: line, status: line > 0 ? 'in_progress' : project.status })}
+            />
+          )}
 
-        {tab === 'guide' && project.type === 'tapestry' && (
-          pixelGrid.length > 0
-            ? <TapestryGuide
-                grid={pixelGrid}
-                currentRow={project.currentRow || 0}
-                onRowDone={() => updateProject({
-                  currentRow: (project.currentRow || 0) + 1,
-                  status: (project.currentRow || 0) + 1 >= pixelGrid.length ? 'completed' : 'in_progress',
-                })}
-              />
-            : <div style={{ textAlign: 'center', padding: 48, color: C.muted }}>
-                <div style={{ fontFamily: fonts.display, fontSize: 22, color: C.ink, marginBottom: 8 }}>
-                  Nenhuma grade configurada
+          {/* GUIDE — Tapestry */}
+          {tab === 'guide' && project.type === 'tapestry' && (
+            pixelGrid.length > 0
+              ? <TapestryGuide
+                  grid={pixelGrid}
+                  currentRow={project.currentRow || 0}
+                  onRowDone={() => updateProject({
+                    currentRow: (project.currentRow || 0) + 1,
+                    status: (project.currentRow || 0) + 1 >= pixelGrid.length ? 'completed' : 'in_progress',
+                  })}
+                />
+              : <div style={{ textAlign: 'center', padding: 48, color: C.muted } as React.CSSProperties}>
+                  <div style={{ fontSize: 22, fontWeight: 600, color: C.ink, marginBottom: 8 }}>
+                    Nenhuma grade configurada
+                  </div>
+                  <div style={{ fontSize: 14 }}>Vá na aba Grade para configurar</div>
                 </div>
-                <div style={{ fontSize: 14 }}>Configure na aba Grade</div>
-              </div>
-        )}
+          )}
 
-        {/* RECIPE */}
-        {tab === 'recipe' && project.type === 'amigurumi' && (
-          editingRecipe
-            ? <RecipeEditor
-                recipe={recipe}
-                onSave={r => { updateProject({ recipe: JSON.stringify(r) }); setEditingRecipe(false) }}
-                onCancel={() => setEditingRecipe(false)}
-              />
-            : <>
-                {recipe.materials && (
-                  <div style={{ ...S.card, padding: 16, marginBottom: 16, background: `${C.warn}0a`, border: `1px solid ${C.warn}30` }}>
-                    <div style={{
-                      fontSize: 11, fontWeight: 600, color: C.warn,
-                      textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
-                    }}>
-                      Materiais
-                    </div>
-                    <div style={{ fontSize: 13, color: C.inkLight, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                      {recipe.materials}
-                    </div>
-                  </div>
-                )}
-                {(recipe.sections || []).map(sec => (
-                  <div key={sec.id} style={{ ...S.card, marginBottom: 14, overflow: 'hidden' }}>
-                    <div style={{ padding: '12px 16px', background: C.sagePale, borderBottom: `1px solid ${C.creamDark}` }}>
-                      <div style={{ fontFamily: fonts.display, fontSize: 17, fontWeight: 600, color: C.ink }}>{sec.name}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>{sec.rows.length} linha{sec.rows.length !== 1 ? 's' : ''}</div>
-                    </div>
-                    {sec.rows.map(r => (
-                      <div key={r.id} style={{
-                        display: 'flex', gap: 12, padding: '10px 16px',
-                        borderBottom: `1px solid ${C.cream}`,
-                      }}>
-                        <div style={{
-                          width: 20, height: 20, background: C.sagePale, borderRadius: 5,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 10, fontWeight: 700, color: C.sage, flexShrink: 0,
-                        }}>
-                          {r.line}
-                        </div>
-                        <div style={{ fontSize: 13, color: C.inkLight, lineHeight: 1.6 }}>
-                          {r.instruction}
-                        </div>
+          {/* RECIPE — Amigurumi */}
+          {tab === 'recipe' && project.type === 'amigurumi' && (
+            editingRecipe
+              ? <RecipeEditor
+                  recipe={recipe}
+                  onSave={r => { updateProject({ recipe: JSON.stringify(r) }); setEditingRecipe(false) }}
+                  onCancel={() => setEditingRecipe(false)}
+                />
+              : <>
+                  {recipe.materials && (
+                    <div style={{ ...S.card, padding: 16, marginBottom: 16, background: `${C.warn}0a`, border: `1px solid ${C.warn}30` } as React.CSSProperties}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.warn, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                        Materiais
                       </div>
-                    ))}
-                  </div>
-                ))}
-                <button
-                  onClick={() => setEditingRecipe(true)}
-                  style={{
-                    width: '100%', padding: '13px', borderRadius: 12,
-                    border: `1.5px dashed ${C.sage}`, background: 'transparent',
-                    color: C.sage, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  }}
-                >
-                  {recipe.sections?.length ? 'Editar receita' : 'Criar receita'}
+                      <div style={{ fontSize: 13, color: C.inkLight, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                        {recipe.materials}
+                      </div>
+                    </div>
+                  )}
+                  {(recipe.sections || []).map(sec => (
+                    <div key={sec.id} style={{ ...S.card, marginBottom: 14, overflow: 'hidden' } as React.CSSProperties}>
+                      <div style={{ padding: '12px 16px', background: C.sagePale, borderBottom: `1px solid ${C.creamDark}` }}>
+                        <div style={{ fontWeight: 600, fontSize: 17, color: C.ink }}>{sec.name}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{sec.rows.length} linha{sec.rows.length !== 1 ? 's' : ''}</div>
+                      </div>
+                      {sec.rows.map(r => (
+                        <div key={r.id} style={{ display: 'flex', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.cream}` }}>
+                          <div style={{ width: 20, height: 20, background: C.sagePale, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: C.sage, flexShrink: 0 }}>
+                            {r.line}
+                          </div>
+                          <div style={{ fontSize: 13, color: C.inkLight, lineHeight: 1.6 }}>{r.instruction}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  <button onClick={() => setEditingRecipe(true)} style={{ width: '100%', padding: '13px', borderRadius: 12, border: `1.5px dashed ${C.sage}`, background: 'transparent', color: C.sage, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    {recipe.sections?.length ? 'Editar receita' : 'Criar receita'}
+                  </button>
+                </>
+          )}
+
+          {/* GRADE — Tapestry */}
+          {tab === 'recipe' && project.type === 'tapestry' && (
+            <PixelTab project={project} pixelGrid={pixelGrid} onUpdate={updateProject} />
+          )}
+
+          {/* TIMER */}
+          {tab === 'timer' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ ...S.card, padding: 28, textAlign: 'center' } as React.CSSProperties}>
+                <div style={{ fontSize: 12, color: C.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Tempo total</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 40, fontWeight: 700, color: C.ink, letterSpacing: 4 }}>
+                  {timer.fmt(timer.secs)}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => timer.setRunning((r: boolean) => !r)} style={{ flex: 2, ...S.btnPrimary, padding: '14px', fontSize: 15 }}>
+                  {timer.running ? 'Pausar' : 'Iniciar'}
                 </button>
-              </>
-        )}
-
-        {/* GRADE — Tapestry */}
-        {tab === 'recipe' && project.type === 'tapestry' && (
-          <PixelTab
-            project={project}
-            pixelGrid={pixelGrid}
-            onUpdate={updateProject}
-          />
-        )}
-
-        {/* TIMER */}
-        {tab === 'timer' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ ...S.card, padding: 28, textAlign: 'center' }}>
-              <div style={{
-                fontSize: 12, color: C.muted, letterSpacing: 1,
-                textTransform: 'uppercase', marginBottom: 10,
-              }}>
-                Tempo total
-              </div>
-              <div style={{
-                fontFamily: fonts.mono, fontSize: 40, fontWeight: 700,
-                color: C.ink, letterSpacing: 4,
-              }}>
-                {timer.fmt(timer.secs)}
+                <button onClick={() => { timer.setRunning(false); timer.setSecs(project.timerSeconds || 0) }} style={{ flex: 1, ...S.btnGhost, padding: '14px' }}>
+                  &xmap;
+                </button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => timer.setRunning(r => !r)}
-                style={{ flex: 2, ...S.btnPrimary, padding: '14px', fontSize: 15 }}
-              >
-                {timer.running ? 'Pausar' : 'Iniciar'}
-              </button>
-              <button
-                onClick={() => { timer.setRunning(false); timer.setSecs(project.timerSeconds || 0) }}
-                style={{ flex: 1, ...S.btnGhost, padding: '14px' }}
-              >
-                &xmap;
-              </button>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* SETTINGS */}
-        {tab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ ...S.card, padding: 18 }}>
-              <label style={S.label}>Status</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[
-                  ['not_started', 'Nao iniciado', C.mutedLight],
-                  ['in_progress', 'Em andamento', C.warn],
-                  ['completed', 'Concluido', C.success],
-                ].map(([s, l, col]) => (
-                  <button
-                    key={s}
-                    onClick={() => updateProject({ status: s })}
-                    style={{
+          {/* SETTINGS */}
+          {tab === 'settings' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ ...S.card, padding: 18 } as React.CSSProperties}>
+                <label style={S.label}>Status</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    ['not_started', 'Nao iniciado', C.mutedLight],
+                    ['in_progress', 'Em andamento', C.warn],
+                    ['completed', 'Concluido', C.success],
+                  ].map(([s, l, col]) => (
+                    <button key={s} onClick={() => updateProject({ status: s })} style={{
                       flex: 1, padding: '10px 4px', borderRadius: 10,
                       border: `1.5px solid ${project.status === s ? col : C.creamDark}`,
                       background: project.status === s ? `${col}18` : 'transparent',
                       cursor: 'pointer', fontSize: 11, fontWeight: 600,
                       color: project.status === s ? col : C.muted,
-                    }}
-                  >
-                    {l}
-                  </button>
-                ))}
+                    }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              <a href={`/projetos/${project.id}/editar`} style={{ ...S.card, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Editar projeto</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Nome, descricao e dados</div>
+                </div>
+                <span style={{ fontSize: 18, color: C.stone }}>&rsaquo;</span>
+              </a>
+
+              <button onClick={() => setShowDeleteConfirm(true)} style={{ ...S.btnDanger, width: '100%', padding: '13px', textAlign: 'center' }}>
+                Excluir projeto
+              </button>
             </div>
-
-            <a href={`/projetos/${project.id}/editar`} style={{
-              ...S.card, padding: 18, display: 'flex', alignItems: 'center',
-              justifyContent: 'space-between', textDecoration: 'none',
-            }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Editar projeto</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Nome, descricao e dados</div>
-              </div>
-              <span style={{ fontSize: 18, color: C.stone }}>&rsaquo;</span>
-            </a>
-
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              style={{ ...S.btnDanger, width: '100%', padding: '13px', textAlign: 'center' }}
-            >
-              Excluir projeto
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Delete confirmation */}
       {showDeleteConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          background: 'rgba(42,37,32,0.6)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 200, padding: 20,
-        }}>
-          <div style={{ ...S.card, padding: 28, maxWidth: 340, width: '100%' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,37,32,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
+          <div style={{ ...S.card, padding: 28, maxWidth: 340, width: '100%' } as React.CSSProperties}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: fonts.display, fontSize: 22, fontWeight: 600, color: C.ink, marginBottom: 8 }}>
-                Excluir projeto?
-              </div>
-              <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>
-                Esta acao nao pode ser desfeita.
-              </div>
+              <div style={{ fontSize: 22, fontWeight: 600, color: C.ink, marginBottom: 8 }}>Excluir projeto?</div>
+              <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>Esta acao nao pode ser desfeita.</div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setShowDeleteConfirm(false)} style={{ ...S.btnGhost, flex: 1 }}>
-                  Cancelar
-                </button>
-                <button
-                  onClick={async () => {
-                    await fetch(`/api/projects/${params.id}`, { method: 'DELETE' })
-                    router.push('/projetos')
-                  }}
-                  style={{ flex: 1, ...S.btnPrimary, background: C.error }}
-                >
-                  Excluir
-                </button>
+                <button onClick={() => setShowDeleteConfirm(false)} style={{ ...S.btnGhost, flex: 1 }}>Cancelar</button>
+                <button onClick={async () => { await fetch(`/api/projects/${params.id}`, { method: 'DELETE' }); router.push('/projetos') }} style={{ flex: 1, ...S.btnPrimary, background: C.error }}>Excluir</button>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Bottom Nav */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: 540,
-        background: 'rgba(253,252,251,0.93)', backdropFilter: 'blur(12px)',
-        borderTop: `1px solid ${C.creamDark}`, display: 'flex', padding: '8px 0 20px',
-        zIndex: 50,
-      }}>
-        {[
-          { s: 'home', icon: '\u2302', label: 'Inicio' },
-          { s: 'projects', icon: '\u25EB', label: 'Projetos' },
-          { s: 'create', icon: '+', label: 'Criar', special: true },
-        ].map(item => (
-          <a
-            key={item.s}
-            href={item.s === 'create' ? '/projetos/novo' : item.s === 'home' ? '/' : '/projetos'}
-            style={{
-              flex: 1, background: 'none', border: 'none', cursor: 'pointer',
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: 3, padding: '6px 0', textDecoration: 'none',
-            }}
-          >
-            {item.special ? (
-              <div style={{
-                width: 44, height: 44, borderRadius: 14, background: C.sage,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24, color: C.white, marginTop: -10,
-                boxShadow: `0 4px 16px ${C.sage}60`,
-              }}>
-                {item.icon}
-              </div>
-            ) : (
-              <>
-                <span style={{ fontSize: 18, color: '#b0a8a0' }}>{item.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: C.mutedLight, letterSpacing: 0.3 }}>
-                  {item.label}
-                </span>
-              </>
-            )}
-          </a>
-        ))}
-      </div>
     </div>
   )
 }
 
-function PixelTab({
-  project,
-  pixelGrid,
-  onUpdate,
-}: {
-  project: Project
-  pixelGrid: string[][]
-  onUpdate: (data: any) => void
-}) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [showEditor, setShowEditor] = useState(false)
+function PixelTab({ project, pixelGrid, onUpdate }: { project: Project; pixelGrid: string[][]; onUpdate: (data: any) => void }) {
+  const [converting, setConverting] = useState(false)
+  const [convertFile, setConvertFile] = useState<File | null>(null)
 
-  const convertImage = async (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
+  // Convert image
+  async function convertImage(file: File) {
+    setConverting(true)
     try {
-      const res = await fetch('/api/convert-image', {
-        method: 'POST',
-        body: formData,
-      })
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('maxSize', '40')
+      const res = await fetch('/api/convert-image', { method: 'POST', body: formData })
       if (res.ok) {
         const data = await res.json()
-        onUpdate({ pixelData: JSON.stringify(data.grid), currentRow: 0, status: 'in_progress' })
+        if (data.pixels) onUpdate({ pixelData: JSON.stringify(data.pixels), currentRow: 0, status: 'in_progress', pixelWidth: data.width, pixelHeight: data.height })
       }
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e) } finally { setConverting(false) }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p style={{ fontSize: 14, color: C.muted, margin: '0 0 8px' }}>
-        Escolha como configurar a grade do seu Tapestry.
+        Configure ou atualize a grade do seu Tapestry.
       </p>
 
-      <label style={{ ...S.card, padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <span style={{ fontSize: 24 }}>&#x1F4F7;</span>
+      {/* Option 1: Upload pixel image */}
+      <label style={{ ...S.card, padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14 } as React.CSSProperties}>
+        <span style={{ fontSize: 24 }}>&#x1F5BC;</span>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>Converter imagem</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Qualquer foto — convertemos em pixels automaticamente</div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>Upload de imagem pixelada</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Envie uma imagem que ja esta em pixels</div>
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) convertImage(f) }}
-        />
+        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+          // Just upload as original image reference
+          const file = e.target.files?.[0]
+          if (!file) return
+          const fd = new FormData()
+          fd.append('file', file)
+          fd.append('type', 'image')
+          fetch('/api/upload', { method: 'POST', body: fd }).then(r => r.json()).then(d => {
+            if (d.url) onUpdate({ originalImage: d.url })
+          })
+        }} />
       </label>
 
+      {/* Option 2: Convert image */}
+      <div style={{ ...S.card, padding: '14px 18px' } as React.CSSProperties}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>&#x1F4F7;</span>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, color: C.ink }}>Converter imagem</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Qualquer foto — convertemos em pixels</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <label style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: C.cream, border: `1px solid ${C.creamDark}` }}>
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) convertImage(f) }} />
+            <span style={{ fontSize: 13, color: C.muted }}>Selecionar imagem</span>
+          </label>
+        </div>
+        {converting && <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>Convertendo...</div>}
+      </div>
+
+      {/* Status */}
       {pixelGrid.length > 0 && (
-        <div style={{ textAlign: 'center', fontSize: 13, color: C.success, fontWeight: 600 }}>
-          Grade {pixelGrid[0]?.length}x{pixelGrid.length} configurada
+        <div style={{ ...S.card, padding: 16, textAlign: 'center', background: C.sagePale } as React.CSSProperties}>
+          <div style={{ fontSize: 13, color: C.sageDark, fontWeight: 600 }}>
+            Grade {pixelGrid[0]?.length}x{pixelGrid.length} configurada
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+            Vá na aba Guiar para acompanhar linha a linha
+          </div>
         </div>
       )}
     </div>

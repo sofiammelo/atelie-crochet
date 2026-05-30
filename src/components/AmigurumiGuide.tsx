@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { C, S, fonts } from '@/lib/tokens'
+import { C, S } from '@/lib/tokens'
 import type { Recipe } from '@/components/RecipeEditor'
 
 export function AmigurumiGuide({
@@ -30,7 +30,7 @@ export function AmigurumiGuide({
   if (!sec) {
     return (
       <div style={{ textAlign: 'center', padding: 48, color: C.muted }}>
-        <div style={{ fontFamily: fonts.display, fontSize: 22, color: C.ink, marginBottom: 8 }}>
+        <div style={{ fontSize: 22, fontWeight: 600, color: C.ink, marginBottom: 8 }}>
           Nenhuma receita ainda
         </div>
         <div style={{ fontSize: 14 }}>Adicione sua receita na aba Receita</div>
@@ -149,7 +149,7 @@ export function AmigurumiGuide({
           background: `${C.success}12`, borderRadius: 16,
           border: `1px solid ${C.success}30`,
         }}>
-          <div style={{ fontFamily: fonts.display, fontSize: 20, color: C.success, fontWeight: 600, marginBottom: 4 }}>
+          <div style={{ fontSize: 20, color: C.success, fontWeight: 600, marginBottom: 4 }}>
             Secao concluida!
           </div>
           {sectionIdx < sections.length - 1 && (

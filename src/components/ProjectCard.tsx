@@ -1,6 +1,6 @@
 'use client'
 
-import { C, fonts } from '@/lib/tokens'
+import { C } from '@/lib/tokens'
 
 const STATUS_DOT: Record<string, string> = {
   in_progress: '#b08a4a',
@@ -77,7 +77,7 @@ export function ProjectCard({
       <div style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{
-            fontFamily: fonts.display, fontSize: 15, fontWeight: 600,
+            fontSize: 15, fontWeight: 600,
             color: C.ink, lineHeight: 1.3, flex: 1, marginRight: 8,
           }}>
             {project.name}
