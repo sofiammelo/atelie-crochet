@@ -155,9 +155,8 @@ function extractRawStrings(buffer: Buffer): string {
   // 4d) Text-like runs: only accept sequences with actual word separators
   const textRuns = raw.match(/[\x20-\x7E\u00C0-\u00FF]{8,}/g) || []
   const textRunsClean = textRuns.filter(t => {
-    // Must contain common Portuguese words or crochet patterns
     const lower = t.toLowerCase()
-    if (/carreira|amigurumi|carr|linha|volta|materiais|agulha|fio|recheio|pb\b|aum\b|dis\b|nota|corpo|cabeça|braço|perna/i.test(lower)) return true
+    if (CROCHET_WORDS.test(lower)) return true
     // Must have multiple space-separated words (real sentences)
     const words = t.split(/\s+/).filter(Boolean)
     if (words.length >= 3) return true
@@ -198,12 +197,14 @@ function estimatePDFPages(buffer: Buffer): number {
   return m ? m.length : 1
 }
 
-// ── Amigurumi section/round/note parser ──
-// Matches round patterns: R1, R2, R3-R5, Carreira 1:, Carr 1:, C1:, F1:
-const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+)\b/i
+// ── Common terms in PT / ES / EN ──
+const CROCHET_WORDS = /carreira|carr|amigurumi|linha|volta|vuelta|ronda|round|rnd\b|material|materiais|fio|fios|lã|lãs|agulha|agulhas|aguja|gancho|ganchillo|hook|needle|recheio|relleno|stuffing|fiberfill|enchimento|corpo|cuerpo|body|cabeça|cabeza|cabecera|head|braço|brazo|arm|perna|pierna|leg|orelha|oreja|ear|olho|ojo|eye|focinho|hocico|snout|pb\b|sc\b|aum\b|inc\b|dis\b|dec\b|cad\b|ch\b|am\b|mr\b/i
 
-// ── Detects if a line marks the start of a materials list ──
-const MATS_RE = /^(?:material|materiais|fios|lã|lãs|agulha|agulhas|necessário|necessarios)/i
+// Matches round patterns: R1, R2, R3-R5, Carreira 1:, Carr 1:, C1:, F1:, Round 1:, Rnd 1:, Vuelta 1:
+const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
+
+// Detects materials header
+const MATS_RE = /^(?:material|materiais|fios|lã|lãs|agulha|agulhas|necessário|necessarios|necesario|materiales|hilo|hilos|yarn|supplies)/i
 
 function isRoundLine(line: string): boolean {
   return ROUND_RE.test(line.trim())
@@ -221,7 +222,7 @@ function parseSections(text: string) {
     const lower = line.toLowerCase()
 
     // Detect materials block
-    if (!inMaterials && MATS_RE.test(lower) && (lower.includes(':') || lower.includes('-'))) {
+    if (!inMaterials && (MATS_RE.test(lower) || /^material|^supplies|^yarn|^hilo/i.test(lower)) && (lower.includes(':') || lower.includes('-'))) {
       inMaterials = true
       materials.push(line)
       continue
@@ -349,9 +350,8 @@ export async function POST(request: NextRequest) {
       text = extractRawStrings(buffer)
     }
 
-    // Reject if no real Portuguese/crochet words found
-    const lower = text.toLowerCase()
-    const hasRealContent = /carreira|amigurumi|carr|linha|volta|materiais|agulha|fio|recheio|corpo|cabeça|braço|perna|pb|aum|dis|nota|ronda|am|cad|corr/i.test(lower)
+    // Reject if no real crochet words found
+    const hasRealContent = CROCHET_WORDS.test(text.toLowerCase())
     if (text.trim() && !hasRealContent) {
       text = ''
     }
