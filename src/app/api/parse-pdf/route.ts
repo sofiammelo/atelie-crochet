@@ -14,6 +14,23 @@ async function extractText(buffer: Buffer): Promise<string> {
   return parts.join('\n\n')
 }
 
+// ── Step 1b: Try to get any text, even if garbled, using raw content items ──
+async function extractRawPdfjs(buffer: Buffer): Promise<string> {
+  try {
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
+    const parts: string[] = []
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i)
+      const tc = await page.getTextContent()
+      // Include ALL items even if single chars
+      const texts = tc.items.map((item: any) => item.str || '').join('')
+      if (texts.trim()) parts.push(texts.trim())
+    }
+    return parts.join('\n')
+  } catch { return '' }
+}
+
 // ── Step 2: Extract from operator list (catches text getTextContent misses) ──
 async function extractFromOperators(buffer: Buffer): Promise<string> {
   try {
@@ -135,10 +152,22 @@ function extractRawStrings(buffer: Buffer): string {
     return ''
   }).filter(Boolean)
 
-  // 4d) Desperate: scan for any text-like runs in the binary
+  // 4d) Text-like runs: only accept sequences with actual word separators
   const textRuns = raw.match(/[\x20-\x7E\u00C0-\u00FF]{8,}/g) || []
+  const textRunsClean = textRuns.filter(t => {
+    // Must contain common Portuguese words or crochet patterns
+    const lower = t.toLowerCase()
+    if (/carreira|amigurumi|carr|linha|volta|materiais|agulha|fio|recheio|pb\b|aum\b|dis\b|nota|corpo|cabeça|braço|perna/i.test(lower)) return true
+    // Must have multiple space-separated words (real sentences)
+    const words = t.split(/\s+/).filter(Boolean)
+    if (words.length >= 3) return true
+    // Or have real word patterns: letter sequences separated by punctuation
+    const letterTokens = t.split(/[\s,;:.]+/).filter(w => /[A-Za-z\u00C0-\u00FF]{3,}/.test(w))
+    if (letterTokens.length >= 2) return true
+    return false
+  })
 
-  const all = [...stdTexts, ...arrTexts, ...hexTexts, ...textRuns]
+  const all = [...stdTexts, ...arrTexts, ...hexTexts, ...textRunsClean]
     .filter(t => looksReadable(t))
 
   return Array.from(new Set(all)).join('\n')
@@ -308,6 +337,9 @@ export async function POST(request: NextRequest) {
     let text = ''
     try { text = await extractText(buffer) } catch (e: any) { console.warn('pdfjs err:', e?.message) }
     if (!text.trim()) {
+      try { text = await extractRawPdfjs(buffer) } catch (e: any) { console.warn('raw pdfjs err:', e?.message) }
+    }
+    if (!text.trim()) {
       try { text = await extractFromOperators(buffer) } catch (e: any) { console.warn('oplist err:', e?.message) }
     }
     if (!text.trim()) {
@@ -315,6 +347,13 @@ export async function POST(request: NextRequest) {
     }
     if (!text.trim()) {
       text = extractRawStrings(buffer)
+    }
+
+    // Reject if no real Portuguese/crochet words found
+    const lower = text.toLowerCase()
+    const hasRealContent = /carreira|amigurumi|carr|linha|volta|materiais|agulha|fio|recheio|corpo|cabeça|braço|perna|pb|aum|dis|nota|ronda|am|cad|corr/i.test(lower)
+    if (text.trim() && !hasRealContent) {
+      text = ''
     }
 
     const recipe = buildRecipe(text, type)
