@@ -53,7 +53,7 @@ export function TapestryGuide({
               <div key={r} style={{
                 display: 'flex', alignItems: 'center',
                 background: active ? C.sagePale : 'transparent',
-                minHeight: cellSize,
+                minHeight: cellSize, marginBottom: '1px',
               }}>
                 {/* Row number column */}
                 <div style={{
@@ -65,15 +65,16 @@ export function TapestryGuide({
                   {done ? '\u2713' : active ? '\u25B6' : r + 1}
                 </div>
 
-                {/* Pixel cells */}
-                <div style={{ display: 'flex', gap: 0, alignItems: 'stretch' }}>
+                {/* Pixel cells — gap between cells acts as grid lines */}
+                <div style={{
+                  display: 'flex', gap: '1px',
+                  background: 'rgba(0,0,0,0.12)',
+                }}>
                   {row.map((col, c) => (
                     <div key={c} style={{
                       width: cellSize, height: cellSize,
                       background: col,
                       opacity: done ? 0.55 : active ? 1 : 0.8,
-                      border: '1px solid rgba(0,0,0,0.4)',
-                      boxSizing: 'border-box',
                     }} />
                   ))}
                 </div>
