@@ -30,8 +30,10 @@ export async function POST(request: NextRequest) {
       },
     })
     return NextResponse.json({ project }, { status: 201 })
-  } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: 'Erro ao criar projeto' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Create project error:', error?.message || error)
+    const msg = error?.message?.includes('request size') ? 'Arquivo muito grande' :
+      error?.message || 'Erro ao criar projeto'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -23,6 +23,13 @@ export async function POST(request: NextRequest) {
     if (preserveSize) {
       pixelW = originalWidth
       pixelH = originalHeight
+      // Cap at 200x200 – images larger than that are not pixel art
+      const maxDim = 200
+      if (pixelW > maxDim || pixelH > maxDim) {
+        const ratio = pixelW / pixelH
+        if (pixelW > pixelH) { pixelW = maxDim; pixelH = Math.round(maxDim / ratio) }
+        else { pixelH = maxDim; pixelW = Math.round(maxDim * ratio) }
+      }
     } else {
       const ratio = originalWidth / originalHeight
       pixelW = maxSize
