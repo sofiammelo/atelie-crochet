@@ -78,7 +78,7 @@ export default function NewProjectPage() {
     try {
       const formData = new FormData()
       formData.append('image', file)
-      formData.append('maxSize', String(maxSize))
+      formData.append('preserveSize', 'true')
       const res = await fetch('/api/convert-image', { method: 'POST', body: formData })
       if (res.ok) {
         const data = await res.json()

@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('image') as File | null
     const maxSize = parseInt(formData.get('maxSize') as string || '40', 10)
+    const preserveSize = formData.get('preserveSize') === 'true'
 
     if (!file) {
       return NextResponse.json({ error: 'Nenhuma imagem enviada' }, { status: 400 })
@@ -18,12 +19,18 @@ export async function POST(request: NextRequest) {
     const originalWidth = metadata.width || 100
     const originalHeight = metadata.height || 100
 
-    const ratio = originalWidth / originalHeight
-    let pixelW = maxSize
-    let pixelH = Math.round(maxSize / ratio)
-    if (pixelH > maxSize) {
-      pixelH = maxSize
-      pixelW = Math.round(maxSize * ratio)
+    let pixelW: number, pixelH: number
+    if (preserveSize) {
+      pixelW = originalWidth
+      pixelH = originalHeight
+    } else {
+      const ratio = originalWidth / originalHeight
+      pixelW = maxSize
+      pixelH = Math.round(maxSize / ratio)
+      if (pixelH > maxSize) {
+        pixelH = maxSize
+        pixelW = Math.round(maxSize * ratio)
+      }
     }
 
     const resized = await sharp(buffer)

@@ -365,7 +365,7 @@ function PixelTab({ project, pixelGrid, onUpdate }: { project: Project; pixelGri
           if (!file) return
           const fd = new FormData()
           fd.append('image', file)
-          fd.append('maxSize', String(maxSize))
+          fd.append('preserveSize', 'true')
           fetch('/api/convert-image', { method: 'POST', body: fd }).then(r => r.json()).then(d => {
             if (d.pixels) onUpdate({ pixelData: JSON.stringify(d.pixels), currentRow: 0, status: 'in_progress', pixelWidth: d.width, pixelHeight: d.height })
           })
