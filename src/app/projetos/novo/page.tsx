@@ -16,6 +16,7 @@ function NewProjectForm() {
 
   const [patternText, setPatternText] = useState('')
   const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [parsingPdf, setParsingPdf] = useState(false)
   const [inputMethod, setInputMethod] = useState<'write' | 'pdf'>('write')
 
   const [tapestryMethod, setTapestryMethod] = useState<'pixel' | 'convert' | 'create'>('pixel')
@@ -61,6 +62,26 @@ function NewProjectForm() {
     const newGrid = pixelGrid.map(function(row) { return [...row] })
     newGrid[y][x] = currentColor
     setPixelGrid(newGrid)
+  }
+
+  async function handlePdfFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPdfFile(file)
+    setParsingPdf(true)
+    try {
+      const formData = new FormData()
+      formData.append('pdf', file)
+      const res = await fetch('/api/parse-pdf', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (data.text) {
+        setPatternText(data.text)
+      }
+    } catch (e) {
+      console.error('Erro ao processar PDF:', e)
+    } finally {
+      setParsingPdf(false)
+    }
   }
 
   function handlePixelFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -110,7 +131,7 @@ function NewProjectForm() {
         name: name.trim(), type, status, description,
       }
       if (type === 'amigurumi') {
-        if (inputMethod === 'write') projectData.patternText = patternText
+        projectData.patternText = patternText
         if (pdfUrl) projectData.pdfPath = pdfUrl
       }
       if (type === 'tapestry') {
@@ -247,24 +268,36 @@ function NewProjectForm() {
           <label className="block text-sm font-medium text-[#1a1a2e] mb-1">Upload de PDF</label>
           <div onClick={function() { document.getElementById('pdf-upload')?.click() }}
             className="border-2 border-dashed border-[#e2e8f0] rounded-xl p-8 text-center cursor-pointer hover:border-purple-300 transition-colors">
-            {pdfFile
-              ? <div>
-                  <svg className="w-10 h-10 mx-auto text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className="text-sm text-purple-600 mt-2 font-medium">{pdfFile.name}</p>
-                  <p className="text-xs text-[#64748b] mt-1">Clique para trocar</p>
-                </div>
-              : <div>
-                  <svg className="w-10 h-10 mx-auto text-[#64748b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-sm text-[#64748b] mt-2">Clique para fazer upload do PDF</p>
-                </div>
-            }
+            {parsingPdf ? (
+              <div>
+                <div className="animate-spin w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-2" />
+                <p className="text-sm text-[#64748b]">Processando PDF...</p>
+              </div>
+            ) : pdfFile ? (
+              <div>
+                <svg className="w-10 h-10 mx-auto text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-sm text-purple-600 mt-2 font-medium">{pdfFile.name}</p>
+                <p className="text-xs text-[#64748b] mt-1">Clique para trocar</p>
+              </div>
+            ) : (
+              <div>
+                <svg className="w-10 h-10 mx-auto text-[#64748b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <p className="text-sm text-[#64748b] mt-2">Clique para fazer upload do PDF</p>
+              </div>
+            )}
           </div>
           <input id="pdf-upload" type="file" accept=".pdf" className="hidden"
-            onChange={function(e) { setPdfFile(e.target.files?.[0] || null) }} />
+            onChange={handlePdfFileSelect} />
+          {patternText && inputMethod === 'pdf' && (
+            <div className="mt-3 p-3 bg-purple-50 rounded-xl border border-purple-200 max-h-48 overflow-y-auto">
+              <p className="text-xs font-medium text-purple-700 mb-1">Texto extraído do PDF:</p>
+              <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{patternText.substring(0, 500)}{patternText.length > 500 ? '...' : ''}</pre>
+            </div>
+          )}
         </div>}
       </div>}
 
