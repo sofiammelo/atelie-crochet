@@ -157,6 +157,7 @@ export default function ProjectDetailPage() {
           lines={lines}
           currentLine={project.currentLine}
           pdfPath={project.pdfPath}
+          projectId={project.id}
           onUpdateLine={(line) => updateProject({ currentLine: line })}
         />
       )}
@@ -208,11 +209,13 @@ function AmigurumiGuide({
   lines,
   currentLine,
   pdfPath,
+  projectId,
   onUpdateLine,
 }: {
   lines: string[]
   currentLine: number
   pdfPath: string | null
+  projectId: string
   onUpdateLine: (line: number) => void
 }) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -228,7 +231,7 @@ function AmigurumiGuide({
     return (
       <div className="bg-white rounded-2xl border border-[#e2e8f0] p-6 text-center shadow-sm">
         <p className="text-[#64748b]">Nenhuma receita adicionada ainda.</p>
-        <Link href={`/projetos/${useParams().id}/editar`} className="text-purple-600 font-medium text-sm mt-1 inline-block">
+        <Link href={`/projetos/${projectId}/editar`} className="text-purple-600 font-medium text-sm mt-1 inline-block">
           Adicionar receita
         </Link>
       </div>

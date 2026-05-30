@@ -4,7 +4,6 @@ node_modules/
 *.db-journal
 .env
 .env.local
-public/uploads/
 test_project.json
 test2.json
 dev_output.txt

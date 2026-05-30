@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
-import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,22 +10,11 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
+    const base64 = buffer.toString('base64')
+    const mimeType = file.type || 'application/octet-stream'
+    const dataUrl = `data:${mimeType};base64,${base64}`
 
-    const ext = file.name.split('.').pop() || 'bin'
-    const filename = `${uuidv4()}.${ext}`
-
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-    await mkdir(uploadDir, { recursive: true })
-
-    const subDir = formData.get('type') === 'pdf' ? 'pdfs' : 'images'
-    const dir = path.join(uploadDir, subDir)
-    await mkdir(dir, { recursive: true })
-
-    const filepath = path.join(dir, filename)
-    await writeFile(filepath, buffer)
-
-    const url = `/uploads/${subDir}/${filename}`
-    return NextResponse.json({ url, filename })
+    return NextResponse.json({ url: dataUrl, filename: file.name })
   } catch (error) {
     console.error('Upload error:', error)
     return NextResponse.json({ error: 'Erro ao fazer upload' }, { status: 500 })
