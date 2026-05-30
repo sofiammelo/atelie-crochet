@@ -62,7 +62,8 @@ export default function NewProjectPage() {
       } else if (data.text) {
         setPdfText(data.text)
       } else {
-        setPdfError('Nenhum texto encontrado no PDF')
+        const diag = data.diag ? ` (${data.diag})` : ''
+        setPdfError('Nenhum texto encontrado no PDF' + diag)
       }
     } catch (e: any) {
       setPdfError(e.message || 'Erro ao processar PDF')
