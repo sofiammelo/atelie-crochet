@@ -121,11 +121,18 @@ function extractRawStrings(buffer: Buffer): string {
     return parts.map(p => p.slice(1, -1)).join(' ')
   })
 
-  // 4c) Hex strings: <hex> Tj
+  // 4c) Hex strings: <hex> Tj — try UTF-8 then UTF-16BE
   const hexOps = raw.match(/<([0-9A-Fa-f]+)>\s*Tj/g) || []
   const hexTexts = hexOps.map(m => {
     const hex = m.match(/<([0-9A-Fa-f]+)>/)
-    return hex ? Buffer.from(hex[1], 'hex').toString('utf8') : ''
+    if (!hex) return ''
+    const buf = Buffer.from(hex[1], 'hex')
+    const utf8 = buf.toString('utf8')
+    if (/^[\x20-\x7E\u00A0-\u00FF\u0100-\u024F\s]+$/.test(utf8)) return utf8
+    // Try UTF-16BE
+    const utf16 = buf.toString('utf16le')
+    if (/^[\x20-\x7E\u00A0-\u00FF\u0100-\u024F\s]+$/.test(utf16)) return utf16
+    return ''
   }).filter(Boolean)
 
   // 4d) Desperate: scan for any text-like runs in the binary
@@ -139,16 +146,18 @@ function extractRawStrings(buffer: Buffer): string {
 
 // Heuristic: does this look like human-readable text?
 function looksReadable(s: string): boolean {
-  if (s.length < 6) return false
-  // Count non-printable (non-ASCII, non-Latin-1) chars
+  if (s.length < 4) return false
   const bad = s.replace(/[\x20-\x7E\u00A0-\u00FF\u0100-\u024F]/g, '')
   if (bad.length / s.length > 0.2) return false
-  // Must contain at least one letter
   if (!/[A-Za-z\u00C0-\u00FF]/.test(s)) return false
-  // At least 2 words or word-like tokens
+  // Single token is OK if it has more than 2 letters with Portuguese accents
   const tokens = s.split(/[\s,;:]+/).filter(Boolean)
-  if (tokens.length < 2 && s.length < 12) return false
-  // Reject hex dumps
+  if (tokens.length < 2) {
+    if (s.length >= 12) return true
+    const letters = s.replace(/[^A-Za-z\u00C0-\u00FF]/g, '')
+    if (letters.length >= 4) return true
+    return false
+  }
   if (/^[0-9A-Fa-f]+$/.test(s.replace(/[\s]/g, ''))) return false
   return true
 }
