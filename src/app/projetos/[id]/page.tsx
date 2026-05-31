@@ -324,6 +324,17 @@ export default function ProjectDetailPage() {
                 <span style={{ fontSize: 18, color: C.stone }}>&rsaquo;</span>
               </a>
 
+              {project.pdfPath && (
+                <a href={project.pdfPath} download={`${project.name}.pdf`} target="_blank"
+                  style={{ ...S.card, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>PDF original</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Baixar o arquivo enviado</div>
+                  </div>
+                  <span style={{ fontSize: 18, color: C.stone }}>&darr;</span>
+                </a>
+              )}
+
               <button onClick={() => setShowDeleteConfirm(true)} style={{ ...S.btnDanger, width: '100%', padding: '13px', textAlign: 'center' }}>
                 Excluir projeto
               </button>

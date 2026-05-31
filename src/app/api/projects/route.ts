@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
         pixelHeight: body.pixelHeight || null,
         pixelData: body.pixelData || null,
         originalImage: body.originalImage || null,
+        pdfPath: body.pdfPath || null,
       },
     })
     return NextResponse.json({ project }, { status: 201 })

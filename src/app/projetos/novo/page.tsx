@@ -15,6 +15,7 @@ export default function NewProjectPage() {
   const [pdfText, setPdfText] = useState('')
   const [pdfError, setPdfError] = useState('')
   const [parsedRecipe, setParsedRecipe] = useState<any>(null)
+  const [pdfBase64, setPdfBase64] = useState('')
 
   // Tapestry - pixel upload
   const [pixelFile, setPixelFile] = useState<File | null>(null)
@@ -47,6 +48,10 @@ export default function NewProjectPage() {
     setPdfError('')
     setPdfText('')
     setParsingPdf(true)
+    // Convert to base64 for later storage
+    const reader = new FileReader()
+    reader.onload = () => setPdfBase64(reader.result as string || '')
+    reader.readAsDataURL(file)
     try {
       const formData = new FormData()
       formData.append('pdf', file)
@@ -149,6 +154,7 @@ export default function NewProjectPage() {
         status: 'not_started',
         recipe: buildRecipe(),
         patternText: pdfText || '',
+        pdfPath: pdfBase64 || null,
       }
 
       if (type === 'tapestry') {

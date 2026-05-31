@@ -85,48 +85,11 @@ export function RecipeEditor({
     setNewRowText(r => ({ ...r, [secId]: '' }))
   }
 
-  const removeRow = (secId: string, rowId: string) => {
-    setSections(s => s.map(sec =>
-      sec.id !== secId ? sec : {
-        ...sec,
-        rows: sec.rows.filter(r => r.id !== rowId).map((r, i) => ({ ...r, line: i + 1 })),
-      }
-    ))
-  }
-
-  const updateRow = (secId: string, rowId: string, field: string, value: string) => {
-    setSections(s => s.map(sec =>
-      sec.id !== secId ? sec : {
-        ...sec,
-        rows: sec.rows.map(r => r.id === rowId ? { ...r, [field]: value } : r),
-      }
-    ))
-  }
-
-  const toggleRowType = (secId: string, rowId: string) => {
-    setSections(s => s.map(sec =>
-      sec.id !== secId ? sec : {
-        ...sec,
-        rows: sec.rows.map(r => r.id === rowId ? { ...r, type: r.type === 'note' ? 'instruction' : 'note' } : r),
-      }
-    ))
-  }
-
   const removeSection = (secId: string) => {
     setSections(s => s.filter(sec => sec.id !== secId))
   }
 
   const iconSize = 26
-
-  const btnMove = (secId: string, rowId: string, dir: -1 | 1) => (
-    <button
-      onPointerDown={e => e.preventDefault()}
-      onClick={() => setSections(s => moveRow(s, secId, rowId, dir))}
-      style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.mutedLight, fontSize: 12, padding: 0, width: iconSize, height: iconSize, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-    >
-      {dir === -1 ? '\u25B2' : '\u25BC'}
-    </button>
-  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -167,41 +130,99 @@ export function RecipeEditor({
             </button>
           </div>
 
-          {sec.rows.map((row, ri) => (
-            <div key={row.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-              {btnMove(sec.id, row.id, -1)}
-              {btnMove(sec.id, row.id, 1)}
-              <div
-                onClick={() => toggleRowType(sec.id, row.id)}
-                style={{
-                  width: iconSize, height: iconSize, borderRadius: 6, flexShrink: 0,
-                  background: row.type === 'note' ? C.info : C.sagePale,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700, color: C.white, cursor: 'pointer', userSelect: 'none',
+          {sec.rows
+            .map((row, ri, all) => (
+              <div key={row.id}
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.setData('text/plain', JSON.stringify({ secId: sec.id, rowId: row.id }))
+                  e.dataTransfer.effectAllowed = 'move'
+                  ;(e.target as HTMLElement).style.opacity = '0.3'
                 }}
-                title={row.type === 'note' ? 'Clique para virar instrução' : 'Clique para virar nota'}
+                onDragOver={e => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                }}
+                onDrop={e => {
+                  e.preventDefault()
+                  ;((e.target as HTMLElement).closest('[draggable]') as HTMLElement | null)?.style.removeProperty('opacity')
+                  try {
+                    const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+                    if (data.secId !== sec.id || data.rowId === row.id) return
+                    setSections(s => s.map(ssec => {
+                      if (ssec.id !== sec.id) return ssec
+                      const rows = [...ssec.rows]
+                      const from = rows.findIndex(r => r.id === data.rowId)
+                      if (from === -1) return ssec
+                      const [removed] = rows.splice(from, 1)
+                      const to = rows.findIndex(r => r.id === row.id)
+                      rows.splice(to < from ? to : to + 1, 0, removed)
+                      return { ...ssec, rows: rows.map((r, i) => ({ ...r, line: i + 1 })) }
+                    }))
+                  } catch {}
+                }}
+                onDragEnd={e => (e.target as HTMLElement).style.removeProperty('opacity')}
+                style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}
               >
-                {row.type === 'note' ? '!' : ri + 1}
+                <div style={{
+                  cursor: 'grab', color: C.mutedLight, fontSize: 14, lineHeight: 1,
+                  padding: '0 2px', userSelect: 'none', flexShrink: 0, width: 16, textAlign: 'center',
+                }}>
+                  &#x2630;
+                </div>
+                <div
+                  onClick={() => {
+                    setSections(s => s.map(ssec =>
+                      ssec.id !== sec.id ? ssec : {
+                        ...ssec,
+                        rows: ssec.rows.map(r => r.id === row.id ? { ...r, type: r.type === 'note' ? 'instruction' : 'note' } : r),
+                      }
+                    ))
+                  }}
+                  style={{
+                    width: iconSize, height: iconSize, borderRadius: 6, flexShrink: 0,
+                    background: row.type === 'note' ? C.info : C.sagePale,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 700, color: C.white, cursor: 'pointer', userSelect: 'none',
+                  }}
+                  title={row.type === 'note' ? 'Clique para virar instrução' : 'Clique para virar nota'}
+                >
+                  {row.type === 'note' ? '!' : ri + 1}
+                </div>
+                <input
+                  style={{
+                    flex: 1, fontSize: 13, border: 'none', outline: 'none',
+                    background: row.type === 'note' ? `${C.info}08` : C.cream,
+                    borderRadius: 8, padding: '6px 10px',
+                    lineHeight: 1.5, fontStyle: row.type === 'note' ? 'italic' : 'normal',
+                    color: row.type === 'note' ? C.info : C.inkLight,
+                  }}
+                  value={row.instruction}
+                  onChange={e => {
+                    const val = e.target.value
+                    setSections(s => s.map(ssec =>
+                      ssec.id !== sec.id ? ssec : {
+                        ...ssec,
+                        rows: ssec.rows.map(r => r.id === row.id ? { ...r, instruction: val } : r),
+                      }
+                    ))
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    setSections(s => s.map(ssec =>
+                      ssec.id !== sec.id ? ssec : {
+                        ...ssec,
+                        rows: ssec.rows.filter(r => r.id !== row.id).map((r, i) => ({ ...r, line: i + 1 })),
+                      }
+                    ))
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.mutedLight, fontSize: 16, padding: 0, width: iconSize, height: iconSize, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                >
+                  x
+                </button>
               </div>
-              <input
-                style={{
-                  flex: 1, fontSize: 13, border: 'none', outline: 'none',
-                  background: row.type === 'note' ? `${C.info}08` : C.cream,
-                  borderRadius: 8, padding: '6px 10px',
-                  lineHeight: 1.5, fontStyle: row.type === 'note' ? 'italic' : 'normal',
-                  color: row.type === 'note' ? C.info : C.inkLight,
-                }}
-                value={row.instruction}
-                onChange={e => updateRow(sec.id, row.id, 'instruction', e.target.value)}
-              />
-              <button
-                onClick={() => removeRow(sec.id, row.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.mutedLight, fontSize: 16, padding: 0, width: iconSize, height: iconSize, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-              >
-                x
-              </button>
-            </div>
-          ))}
+            ))}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <input
