@@ -412,8 +412,8 @@ ${text}`
     const json = response.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
     JSON.parse(json) // validate
     return json
-  } catch {
-    return ''
+  } catch (e: any) {
+    return 'AI_ERR:' + (e?.message?.slice(0, 80) || 'unknown')
   }
 }
 
@@ -470,8 +470,13 @@ export async function POST(request: NextRequest) {
       diag.push('ai attempt')
       recipe = await parseWithAI(text)
       if (recipe) {
-        diag.push('ai ok')
-      } else {
+        if (recipe.startsWith('AI_ERR:')) {
+          diag.push('ai err:' + recipe.replace('AI_ERR:', ''))
+        } else {
+          diag.push('ai ok')
+        }
+      }
+      if (!recipe) {
         diag.push('ai fail, using regex')
         recipe = buildRecipe(text, type)
       }
