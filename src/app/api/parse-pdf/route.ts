@@ -192,8 +192,6 @@ function looksLikeSectionTitle(line: string): boolean {
 
 function splitIntoRows(line: string): { instruction: string; type: 'instruction' | 'note' }[] {
   const rows: { instruction: string; type: 'instruction' | 'note' }[] = []
-  // Split at ) + spaces before round marker, or . + 2+ spaces before round marker,
-  // or 3+ spaces before round marker, or space before Nota:
   const re = /(?:(?<=\))\s+(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s])|(?<=\.)\s+(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=[Nn]ota:))/gi
   const segments = line.split(re).filter(Boolean)
 
@@ -201,18 +199,12 @@ function splitIntoRows(line: string): { instruction: string; type: 'instruction'
     const s = seg.trim()
     if (!s) continue
 
-    if (/^(?:Nota|NOTA|nota):/.test(s)) {
-      rows.push({ instruction: s, type: 'note' })
-    } else if (/nota:/i.test(s)) {
-      rows.push({ instruction: s, type: 'note' })
-    } else if (ROUND_RE.test(s) && !/nota:/i.test(s)) {
+    if (/^R\s*\d+(?:\s*-\s*R?\s*\d+)?[\s.]/.test(s) || /^F\s*\d+[\s.]/.test(s) || /^(?:Carreira|Carr|C|Volta|Vuelta|Round|Rnd)\s*\d+/i.test(s)) {
       rows.push({ instruction: s, type: 'instruction' })
-    } else if (/^\d/.test(s) || /^(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr|pe|slst)/i.test(s)) {
+    } else if (/^\d/.test(s) || /^(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr|pe|slst|x)\b/i.test(s)) {
       rows.push({ instruction: s, type: 'instruction' })
-    } else if (/^[·•x]\s*/.test(s) || /^[A-ZÀ-ÿ]/.test(s)) {
-      rows.push({ instruction: s, type: 'note' })
     } else {
-      rows.push({ instruction: s, type: 'instruction' })
+      rows.push({ instruction: s, type: 'note' })
     }
   }
   return rows
