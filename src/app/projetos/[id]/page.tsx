@@ -325,7 +325,7 @@ export default function ProjectDetailPage() {
               </a>
 
               {project.pdfPath && (
-                <a href={project.pdfPath} target="_blank"
+                <a href={`/api/projects/${project.id}/pdf`} target="_blank"
                   style={{ ...S.card, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none' }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>PDF original</div>
