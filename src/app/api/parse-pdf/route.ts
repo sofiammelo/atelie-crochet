@@ -413,7 +413,7 @@ ${text}`
     JSON.parse(json) // validate
     return json
   } catch (e: any) {
-    return 'AI_ERR:' + (e?.message?.slice(0, 80) || 'unknown')
+    return 'AI_ERR:' + (e?.message?.slice(0, 200) || 'unknown')
   }
 }
 
@@ -468,13 +468,12 @@ export async function POST(request: NextRequest) {
     let recipe = ''
     if (text.trim()) {
       diag.push('ai attempt')
-      recipe = await parseWithAI(text)
-      if (recipe) {
-        if (recipe.startsWith('AI_ERR:')) {
-          diag.push('ai err:' + recipe.replace('AI_ERR:', ''))
-        } else {
-          diag.push('ai ok')
-        }
+      const aiResult = await parseWithAI(text)
+      if (aiResult && !aiResult.startsWith('AI_ERR:')) {
+        diag.push('ai ok')
+        recipe = aiResult
+      } else if (aiResult?.startsWith('AI_ERR:')) {
+        diag.push('ai err:' + aiResult.replace('AI_ERR:', ''))
       }
       if (!recipe) {
         diag.push('ai fail, using regex')
