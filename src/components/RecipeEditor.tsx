@@ -32,6 +32,19 @@ export function parseRecipe(json: string): Recipe {
   try { return JSON.parse(json) } catch { return emptyRecipe() }
 }
 
+function moveRow(sections: RecipeSection[], secId: string, rowId: string, dir: -1 | 1): RecipeSection[] {
+  return sections.map(sec => {
+    if (sec.id !== secId) return sec
+    const idx = sec.rows.findIndex(r => r.id === rowId)
+    if (idx === -1) return sec
+    const newIdx = idx + dir
+    if (newIdx < 0 || newIdx >= sec.rows.length) return sec
+    const rows = [...sec.rows]
+    ;[rows[idx], rows[newIdx]] = [rows[newIdx], rows[idx]]
+    return { ...sec, rows: rows.map((r, i) => ({ ...r, line: i + 1 })) }
+  })
+}
+
 export function RecipeEditor({
   recipe,
   onSave,
@@ -81,9 +94,39 @@ export function RecipeEditor({
     ))
   }
 
+  const updateRow = (secId: string, rowId: string, field: string, value: string) => {
+    setSections(s => s.map(sec =>
+      sec.id !== secId ? sec : {
+        ...sec,
+        rows: sec.rows.map(r => r.id === rowId ? { ...r, [field]: value } : r),
+      }
+    ))
+  }
+
+  const toggleRowType = (secId: string, rowId: string) => {
+    setSections(s => s.map(sec =>
+      sec.id !== secId ? sec : {
+        ...sec,
+        rows: sec.rows.map(r => r.id === rowId ? { ...r, type: r.type === 'note' ? 'instruction' : 'note' } : r),
+      }
+    ))
+  }
+
   const removeSection = (secId: string) => {
     setSections(s => s.filter(sec => sec.id !== secId))
   }
+
+  const iconSize = 26
+
+  const btnMove = (secId: string, rowId: string, dir: -1 | 1) => (
+    <button
+      onPointerDown={e => e.preventDefault()}
+      onClick={() => setSections(s => moveRow(s, secId, rowId, dir))}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.mutedLight, fontSize: 12, padding: 0, width: iconSize, height: iconSize, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+    >
+      {dir === -1 ? '\u25B2' : '\u25BC'}
+    </button>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -124,30 +167,36 @@ export function RecipeEditor({
             </button>
           </div>
 
-          {sec.rows.map(row => (
-            <div key={row.id} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 7 }}>
-              <div style={{
-                width: 22, height: 22, borderRadius: 6,
-                background: row.type === 'note' ? C.info : C.sagePale,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 700, color: C.white, flexShrink: 0,
-              }}>
-                {row.type === 'note' ? '!' : row.line}
+          {sec.rows.map((row, ri) => (
+            <div key={row.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+              {btnMove(sec.id, row.id, -1)}
+              {btnMove(sec.id, row.id, 1)}
+              <div
+                onClick={() => toggleRowType(sec.id, row.id)}
+                style={{
+                  width: iconSize, height: iconSize, borderRadius: 6, flexShrink: 0,
+                  background: row.type === 'note' ? C.info : C.sagePale,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700, color: C.white, cursor: 'pointer', userSelect: 'none',
+                }}
+                title={row.type === 'note' ? 'Clique para virar instrução' : 'Clique para virar nota'}
+              >
+                {row.type === 'note' ? '!' : ri + 1}
               </div>
-              <div style={{
-                flex: 1, fontSize: 13, color: row.type === 'note' ? C.info : C.inkLight,
-                background: row.type === 'note' ? `${C.info}08` : C.cream,
-                borderRadius: 8, padding: '6px 10px',
-                lineHeight: 1.5, fontStyle: row.type === 'note' ? 'italic' : 'normal',
-              }}>
-                {row.type === 'note' && (
-                  <span style={{ fontWeight: 700, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginRight: 4 }}>Nota: </span>
-                )}
-                {row.instruction}
-              </div>
+              <input
+                style={{
+                  flex: 1, fontSize: 13, border: 'none', outline: 'none',
+                  background: row.type === 'note' ? `${C.info}08` : C.cream,
+                  borderRadius: 8, padding: '6px 10px',
+                  lineHeight: 1.5, fontStyle: row.type === 'note' ? 'italic' : 'normal',
+                  color: row.type === 'note' ? C.info : C.inkLight,
+                }}
+                value={row.instruction}
+                onChange={e => updateRow(sec.id, row.id, 'instruction', e.target.value)}
+              />
               <button
                 onClick={() => removeRow(sec.id, row.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.mutedLight, fontSize: 16 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.mutedLight, fontSize: 16, padding: 0, width: iconSize, height: iconSize, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
               >
                 x
               </button>
