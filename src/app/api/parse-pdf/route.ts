@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRequire } from 'module'
 
 const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
 
-// Dynamic require (eval prevents webpack static analysis)
-const _require = eval('require')
+// Real Node.js require (bypasses webpack module resolution)
+const _require = createRequire(import.meta.url)
 
-// ── Canvas loader ──
+// ── Canvas loader (uses createRequire to bypass webpack) ──
 function loadCanvasSync(): any {
   for (const name of ['@napi-rs/canvas', 'canvas']) {
     try { return _require(name) } catch {}
@@ -13,9 +14,25 @@ function loadCanvasSync(): any {
   return null
 }
 
+// ── Init pdfjs and fix worker path for Vercel ──
+async function initPdfjs() {
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  // Default workerSrc is "./pdf.worker.mjs" — a relative path that can't resolve
+  // in webpack-bundled code on Vercel. Resolve it to an absolute path using
+  // createRequire (bypasses webpack module resolution).
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = _require.resolve(
+      'pdfjs-dist/legacy/build/pdf.worker.mjs'
+    )
+  } catch {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/legacy/build/pdf.worker.mjs'
+  }
+  return pdfjsLib
+}
+
 // ── Render PDF pages to PNG buffers ──
 async function renderPages(buffer: Buffer): Promise<Buffer[]> {
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const { getDocument } = await initPdfjs()
   const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
   const Canvas = loadCanvasSync()
   if (!Canvas) return []
@@ -43,7 +60,7 @@ async function renderPages(buffer: Buffer): Promise<Buffer[]> {
 
 // ── Step 1: Text via pdfjs-dist ──
 async function extractText(buffer: Buffer): Promise<string> {
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const { getDocument } = await initPdfjs()
   const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
   const parts: string[] = []
   for (let i = 1; i <= doc.numPages; i++) {
@@ -57,7 +74,7 @@ async function extractText(buffer: Buffer): Promise<string> {
 
 // ── Step 2: Extract from operator list ──
 async function extractFromOperators(buffer: Buffer): Promise<string> {
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const pdfjsLib = await initPdfjs()
   const { getDocument } = pdfjsLib
   const OPS = (pdfjsLib as any).OPS || {}
   const showText = OPS.showText ?? 51
