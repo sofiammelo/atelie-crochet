@@ -404,17 +404,23 @@ RULES (follow strictly):
 
 3. SECTIONS: Detect each pattern section. ANY line that names a body part, feature, or step to be made should start a NEW section — examples: HEAD, BODY, ARMS, LEGS, HAIR BASE, OUTER, POCKETS, ASSEMBLY, but also Branco dos olhos, Sobrancelhas, Nariz, Expressão, Orelhas, Barba, Bigode, Cabelo, Túnica, Manto, Sandálias, Mangas. If it reads like a sub-heading, make it a section. Do NOT bury sub-headings as notes inside another section.
 
-4. ROWS within each section:
+4. CHARACTER PREFIX: If a pattern has multiple characters (e.g., "Tiana" and "Sapito Naveen" / "Príncipe Naveen"), prefix section names with the character name like "TIANA — Cabeza", "SAPITO NAVEEN — Patitas". Detect character names from headings in the text.
+
+5. MERGE related sections: If "Base" appears right after or near "Cabello" (same body part), merge them into one combined section like "Cabello (Base)". Don't split them.
+
+6. ROWS within each section:
    - "instruction": actual crochet steps — rounds (R1, R2...), chains, stitches, repeats. Includes color changes "(change to lavender)".
    - "note": useful tips that affect construction — stuffing, sewing instructions, color cues, flipping piece inside out, fasten off, leave tail. Also "Color: ..." lines, "(make 2)" notes, "Work in BLO/FLO" instructions.
    - If a line is ONLY a vague video reference like "(veja o vídeo de apoio)" with no other content, discard it.
    - If a video reference is attached to a real instruction, keep the instruction and discard the video reference.
 
-5. Keep ALL actual crochet instructions and useful notes. Lose NOTHING that affects the finished piece.
+7. REORDER rounds correctly: PDFs with two-column layout often extract text in wrong round order. If rounds appear out of sequence (e.g., Rnd 16 before Rnd 1), reorder them numerically (Rnd 1 → Rnd 40) within each section. Keep notes in their correct position relative to the rounds they refer to.
 
-6. Assembly steps are INSTRUCTIONS (type "instruction"), not notes. They are numbered steps showing how to put pieces together.
+8. Keep ALL actual crochet instructions and useful notes. Lose NOTHING that affects the finished piece.
 
-7. OUTPUT valid JSON only. No markdown fences, no trailing commas.
+9. Assembly steps are INSTRUCTIONS (type "instruction"), not notes. They are numbered steps showing how to put pieces together.
+
+10. OUTPUT valid JSON only. No markdown fences, no trailing commas.
 
 Now process this raw text:
 ${text}`
