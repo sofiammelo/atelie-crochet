@@ -404,7 +404,7 @@ RULES (follow strictly):
 
 3. SECTIONS: Detect each pattern section. ANY line that names a body part, feature, or step to be made should start a NEW section — examples: HEAD, BODY, ARMS, LEGS, HAIR BASE, OUTER, POCKETS, ASSEMBLY, but also Branco dos olhos, Sobrancelhas, Nariz, Expressão, Orelhas, Barba, Bigode, Cabelo, Túnica, Manto, Sandálias, Mangas. If it reads like a sub-heading, make it a section. Do NOT bury sub-headings as notes inside another section.
 
-4. CHARACTER PREFIX: If a pattern has multiple characters (e.g., "Tiana" and "Sapito Naveen" / "Príncipe Naveen"), prefix section names with the character name like "TIANA — Cabeza", "SAPITO NAVEEN — Patitas". Detect character names from headings in the text.
+4. CHARACTER PREFIX: Only prefix section names with a character name if the PDF has TWO OR MORE distinct characters (e.g., "Tiana" and "Sapito Naveen"). Example: "TIANA — Cabeza", "SAPITO NAVEEN — Patitas". For single-character patterns (like "Clove"), use plain section names: "HEAD", "BODY", "ARMS". Do NOT prefix if there's only one character.
 
 5. HIERARCHICAL naming: When a sub-section clearly belongs to a previous body part (e.g., "Moño" belongs to "Cabello", "Primera Pierna" belongs to "Cuerpo"), name it with the parent in parentheses: "Cabello (Moño)", "Cuerpo (Primera Pierna)", "Cuerpo (Borde Inferior de los Zapatos)". This applies to ALL sub-parts.
 
