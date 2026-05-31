@@ -46,3 +46,8 @@ model ProjectRow {
 
   @@unique([projectId, rowIndex])
 }
+
+model SiteConfig {
+  id   String  @id @default("default")
+  icon String?
+}

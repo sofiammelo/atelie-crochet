@@ -4,13 +4,18 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Ateliê Crochet',
   description: 'Gerencie seus projetos de crochê, amigurumi e jacquard',
+  icons: {
+    icon: '/api/icon',
+    apple: '/api/icon',
+    shortcut: '/api/icon',
+  },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#d946ef',
+  themeColor: '#1A2A4A',
 }
 
 export default function RootLayout({
