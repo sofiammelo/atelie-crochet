@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
+const ROUND_RE = /(?:R\s*\d+[\s.]|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)/i
+
+const SECTION_NAMES = /^(Corpo|Braço|Perna|Orelha|Olho|Focinho|Cabeça|Rabo|Asa|Bico|Antena|Chapéu|Laço|Saia|Braços|Pernas|Orelhas|Olhos|Cabeza|Cuerpo|Pierna|Brazo|Oreja|Ojo|Hocico|Rabo|Ala|Pico|Antena|Sombrero|Lazo|Falda|Morango|Folha|Tallo|Casco|Barriga|Tronco|Rabo|Crin|Juba|Rabo|Asas|Brazos|Piernas|Orejas|Cuerpo|Cabeza|Body|Head|Arm|Leg|Ear|Eye|Snout|Tail|Wing|Beak|Antenna|Hat|Bow|Skirt|Strawberry|Leaf|Stem|Hoof|Belly|Trunk|Mane)/i
 
 // Canvas loader — uses dynamic import to avoid webpack bundling
 async function loadCanvas(): Promise<any> {
@@ -135,24 +137,39 @@ function hasRealCrochetText(text: string): boolean {
 }
 
 // ── Amigurumi section/round/note parser ──
+const SECTION_WORDS = /(Corpo|Cuerpo|Body|Braço|Braço\s*\(2x\)|Brazo|Arm|Perna|Perna\s*\(2x\)|Pierna|Leg|Cabeça|Cabeza|Head|Orelha|Oreja|Ear|Olho|Ojo|Eye|Focinho|Hocico|Snout|Rabo|Tail|Asa|Ala|Wing|Bico|Pico|Beak|Morango|Morango\s*\w*|Strawberry|Folha|Leaf|Tallo|Stem|Barriga|Belly|Tronco|Trunk|Casco|Hoof|Mane|Juba|Saia|Skirt|Laço|Bow|Chapéu|Hat|Notas\s*finas?is?|Instruções|Instrucciones|Instructions)/i
+
 function parseSections(text: string) {
-  const rawLines = text.split('\n').map(l => l.trim())
-  const lines = rawLines.filter(Boolean)
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const materials: string[] = []
   const sections: { name: string; rows: { instruction: string; type: 'instruction' | 'note' }[] }[] = []
-  let current: typeof sections[0] | null = null
   let inMaterials = false
 
-  for (const line of lines) {
+  // Split long lines at section boundaries
+  const splitLines: string[] = []
+  for (let line of lines) {
+    if (SECTION_WORDS.test(line)) {
+      // Split line at each section marker
+      const parts = line.split(/(?=(?:Corpo|Braço|Brazo|Perna|Pierna|Cabeça|Cabeza|Orelha|Oreja|Olho|Ojo|Focinho|Hocico|Rabo|Asa|Ala|Bico|Morango|Strawberry|Folha|Leaf|Tallo|Stem|Barriga|Belly|Tronco|Trunk|Casco|Mane|Juba|Saia|Skirt|Laço|Chapéu|Notas\s*finas?is?))/i)
+      splitLines.push(...parts.map(p => p.trim()).filter(Boolean))
+    } else {
+      splitLines.push(line)
+    }
+  }
+
+  for (const line of splitLines) {
     const lower = line.toLowerCase()
 
-    if (!inMaterials && (lower.includes('material') || lower.includes('fio') || lower.includes('agulha') || lower.includes('aguja') || lower.includes('hook') || lower.includes('yarn') || lower.includes('supplies') || lower.includes('hilo') || lower.includes('lã'))) {
+    // Materials detection
+    if (!inMaterials && (lower.includes('material') || lower.includes('materiais') || /^material/i.test(line))) {
       inMaterials = true
       materials.push(line)
       continue
     }
     if (inMaterials) {
-      if (ROUND_RE.test(line) || (line.length < 30 && /^[A-ZÀ-ÿ]/.test(line) && !lower.includes('gancho') && !lower.includes('color'))) {
+      const isSectionWord = SECTION_WORDS.test(line) && line.length < 40
+      const isRound = ROUND_RE.test(line) && line.length < 50
+      if (isSectionWord || isRound) {
         inMaterials = false
       } else {
         materials.push(line)
@@ -160,28 +177,48 @@ function parseSections(text: string) {
       }
     }
 
-    const looksLikeSectionTitle = line.length < 45 && /^[A-ZÀ-ÿ]/.test(line) && !ROUND_RE.test(line) && !/^\d/.test(line)
+    // Section title detection
+    const isSectionTitle = (
+      SECTION_WORDS.test(line) &&
+      line.length < 50 &&
+      !ROUND_RE.test(line) &&
+      !/^[\d]/.test(line) &&
+      !/^[a-z]/.test(line)
+    )
 
-    if (looksLikeSectionTitle && !inMaterials) {
-      if (!current) { current = { name: line, rows: [] }; continue }
-      if (current.rows.length === 0) { current.name = line; continue }
-      sections.push(current)
-      current = { name: line, rows: [] }
+    if (isSectionTitle) {
+      if (sections.length === 0 || sections[sections.length - 1].rows.length > 0) {
+        sections.push({ name: line, rows: [] })
+      } else {
+        sections[sections.length - 1].name = line
+      }
       continue
     }
 
-    if (!current) current = { name: 'Receita', rows: [] }
+    if (sections.length === 0) sections.push({ name: 'Receita', rows: [] })
+    const current = sections[sections.length - 1]
 
-    if (ROUND_RE.test(line) || /^\d/.test(line) || /^(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr)/i.test(line)) {
-      current.rows.push({ instruction: line, type: 'instruction' })
-    } else {
-      current.rows.push({ instruction: line, type: 'note' })
+    // Split line into individual rounds and notes
+    const segments = line.split(/(?=(?:R\s*\d+[\.\s]|Carreira\s+\d+|Carr\s+\d+|C\s*\d+[\.\s]|F\s*\d+[\.\s]|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+|F\s*\d+\.))/i).filter(Boolean)
+
+    for (const seg of segments) {
+      const s = seg.trim()
+      if (!s) continue
+
+      if (ROUND_RE.test(s) || /^\d/.test(s) || /^(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr)/i.test(s) || /^\d/.test(s)) {
+        current.rows.push({ instruction: s, type: 'instruction' })
+      } else if (/^nota/i.test(s) || /nota:/i.test(s)) {
+        current.rows.push({ instruction: s, type: 'note' })
+      } else if (/^[x•·]\s*/.test(s) || s.length > 20) {
+        current.rows.push({ instruction: s, type: 'note' })
+      } else {
+        current.rows.push({ instruction: s, type: 'instruction' })
+      }
     }
   }
 
-  if (current) sections.push(current)
-  if (sections.length === 0 && lines.length > 0) {
-    sections.push({ name: 'Receita', rows: lines.map(l => ({ instruction: l, type: 'instruction' as const })) })
+  if (sections.length === 0 && splitLines.length > 0) {
+    sections.push({ name: 'Receita', rows: splitLines.map(l => ({ instruction: l, type: 'instruction' as const })) })
   }
 
   return { materials, sections }
