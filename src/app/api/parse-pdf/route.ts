@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const ROUND_RE = /(?:R\s*\d+(?:\s*-\s*R?\s*\d+)?[\s.]|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)/i
 
@@ -344,6 +345,62 @@ function buildRecipe(text: string, type: string) {
   return JSON.stringify(recipe)
 }
 
+// ── AI parser (via Google Gemini) ──
+async function parseWithAI(text: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) return ''
+
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: 'application/json',
+    },
+  })
+
+  const prompt = `You are a crochet pattern parser. Given raw text extracted from a PDF, output a JSON object exactly matching this TypeScript type:
+
+{
+  "title": string,
+  "materials": string,
+  "sections": [
+    {
+      "name": string,
+      "rows": [
+        { "instruction": string, "type": "instruction" | "note" }
+      ]
+    }
+  ]
+}
+
+Rules:
+- "title" is the pattern name (e.g. "Clove", "1Up Mushroom"). Use empty string if unclear.
+- "materials" is a plain text summary of all materials, yarns, hooks, and tools. Join with newlines. Empty string if none found.
+- "sections" is an array of pattern sections. Each section has a name (e.g. "Body", "Head", "Legs", "Arms", "Assembly", "Cap", "Stipe", "Spot", "Ears", "Hair", "Backpack") and rows.
+- Each row has an "instruction" (the text) and "type":
+  - "instruction" = actual crochet steps (rounds, rows, increases, decreases, etc.)
+  - "note" = tips, assembly notes, copyright text, abbreviations explanations, sealing methods, any text that is not a direct crochet instruction
+- Combine consecutive rows of the same type within a section when they are part of the same logical step.
+- Remove irrelevant content: page numbers, headers, footers, URLs, copyright lines, image references, promotion text, links to social media.
+- Important: keep ALL actual crochet instructions. Do not lose any rounds or rows.
+- The JSON must be valid. No trailing commas. No markdown fences. Only the JSON object.
+
+Raw text:
+${text}`
+
+  try {
+    const result = await model.generateContent(prompt)
+    const response = result.response.text().trim()
+    // Remove any markdown fences if present
+    const json = response.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+    JSON.parse(json) // validate
+    return json
+  } catch {
+    return ''
+  }
+}
+
 // ── Main ──
 export async function POST(request: NextRequest) {
   try {
@@ -391,7 +448,18 @@ export async function POST(request: NextRequest) {
       text = ''
     }
 
-    const recipe = buildRecipe(text, type)
+    // Try AI parsing first (if API key is configured)
+    let recipe = ''
+    if (text.trim()) {
+      diag.push('ai attempt')
+      recipe = await parseWithAI(text)
+      if (recipe) {
+        diag.push('ai ok')
+      } else {
+        diag.push('ai fail, using regex')
+        recipe = buildRecipe(text, type)
+      }
+    }
 
     return NextResponse.json({
       text: text || '',

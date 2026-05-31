@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['sharp', '@napi-rs/canvas', 'pdfjs-dist'],
+    serverComponentsExternalPackages: ['sharp', '@napi-rs/canvas', 'pdfjs-dist', '@google/generative-ai'],
     outputFileTracingIncludes: {
       '/api/parse-pdf': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
     },
