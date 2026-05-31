@@ -164,12 +164,17 @@ const SECTION_NAMES = [
 // Case-sensitive regex: section titles are capitalized in patterns
 const SECTION_RAW = SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')
 const SECTION_RE = new RegExp(`(?:${SECTION_RAW})(?:\\s*\\(\\s*2\\s*x\\s*\\))?`)
+const SECTION_RE_CI = new RegExp(`(?:${SECTION_RAW})(?:\\s*\\(\\s*2\\s*x\\s*\\))?`, 'i')
 
-// Split a line at ANY whitespace before a known section name (case-sensitive)
+// Strip common PDF page headers like "medaami © 2024 Medaami Patterns 5"
+function stripPageHeader(line: string): string {
+  return line.replace(/^[\w\s]+©\s*\d+\s*[\w\s]+\d*\s*/i, '').trim()
+}
+
+// Split a line at ANY whitespace before a known section name (case-insensitive, anywhere)
 function splitAtSectionBoundaries(line: string): string[] {
   const parts: string[] = []
-  // Match section name after whitespace (any), but NOT inside words (use \b)
-  const re = new RegExp(`(?:^|\\s+)(?=(?:${SECTION_RAW})(?:\\s*\\(\\s*2\\s*x\\s*\\))?)`, 'g')
+  const re = new RegExp(`(?:^|\\s+)(?=(?:${SECTION_RAW})(?:\\s*\\(\\s*2\\s*x\\s*\\))?)`, 'gi')
   let last = 0
   let m: RegExpExecArray | null
   while ((m = re.exec(line)) !== null) {
@@ -185,12 +190,12 @@ function splitAtSectionBoundaries(line: string): string[] {
   return parts.filter(Boolean)
 }
 
-// Check line STARTS with a section name (index 0), no length limit
+// Check line STARTS with a section name (case-insensitive)
 function looksLikeSectionTitle(line: string): boolean {
-  if (/^\d/.test(line)) return false
-  if (/^[a-z]/.test(line)) return false
-  const match = line.match(SECTION_RE)
+  const s = stripPageHeader(line)
+  const match = s.match(SECTION_RE_CI)
   if (!match || match.index !== 0) return false
+  if (match[0].length > s.length / 2) return false // section name must not be most of the line
   return !ROUND_RE.test(match[0])
 }
 
@@ -214,8 +219,8 @@ function filterArtifacts(lines: string[]): string[] {
 }
 
 function looksLikeCrochetInstruction(s: string): boolean {
-  if (/^R\s*\d+(?:\s*-\s*R?\s*\d+)?[\s.]/.test(s)) return true
-  if (/^F\s*\d+[\s.]/.test(s)) return true
+  if (/^R\s*\d+(?:\s*-\s*R?\s*\d+)?[\s.:]/.test(s)) return true
+  if (/^F\s*\d+[\s.:]/.test(s)) return true
   if (/^(?:Carreira|Carr|C|Volta|Vuelta|Round|Rnd)\s*\d+/i.test(s)) return true
   if (/^\d+\s*(?:[A-ZÄ-Ü][a-zä-ü]+|[A-ZÄ-Ü]{2,})/.test(s)) return true
   if (/^\(\s*\d+/.test(s) && /(?:Sc|Pb|Inc|Aum|Dec|Dis|Ch|Corr|Dc|Pa|Tr)\b/i.test(s)) return true
@@ -225,7 +230,8 @@ function looksLikeCrochetInstruction(s: string): boolean {
 
 function splitIntoRows(line: string): { instruction: string; type: 'instruction' | 'note' }[] {
   const rows: { instruction: string; type: 'instruction' | 'note' }[] = []
-  const re = /(?:(?<=\))\s+(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s])|(?<=\.)\s+(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=[Nn]ota:))/gi
+  // Split at transitions into round markers: after ) / . / ] / 3+ spaces
+  const re = /(?:(?<=[)\].])\s+(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s:])|(?:(?<=[)\].])|(?<=\d\]))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:\s*-\s*R?\s*\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=[Nn]ota:))/gi
   const segments = line.split(re).filter(Boolean)
 
   for (const seg of segments) {
@@ -248,19 +254,17 @@ function parseSections(text: string) {
   const sections: { name: string; rows: { instruction: string; type: 'instruction' | 'note' }[] }[] = []
   let inMaterials = false
 
-  // First pass: expand long lines that contain multiple sections
+  // First pass: strip page headers and split lines at section boundaries
   const expanded: string[] = []
   for (const line of lines) {
-    if (line.length > 60 && splitAtSectionBoundaries(line).length > 1) {
-      expanded.push(...splitAtSectionBoundaries(line))
-    } else {
-      expanded.push(line)
-    }
+    const stripped = stripPageHeader(line)
+    const parts = splitAtSectionBoundaries(stripped)
+    expanded.push(...parts)
   }
 
   for (const line of expanded) {
-    // Materials detection — trigger on material keywords
-    if (!inMaterials && /^(?:Materiais?|Material|Materials?|Instruments?|You will need|Supplies?|What you need|Ferramentas?|Herramientas?)/i.test(line)) {
+    // Materials detection — trigger on material keywords anywhere in line (first few words)
+    if (!inMaterials && /(?:^|\s)(?:Materials?|Instruments?|You will need|Supplies?|What you need|Ferramentas?|Herramientas?)(?:\s|$)/i.test(line)) {
       inMaterials = true
       materials.push(line)
       continue
@@ -274,14 +278,14 @@ function parseSections(text: string) {
       }
     }
 
-    // Section title — starts with a known section name
+    // Section title — starts with a known section name (case-insensitive)
     if (looksLikeSectionTitle(line)) {
-      const nameMatch = line.match(SECTION_RE)
-      const name = (nameMatch ? nameMatch[0] : line).trim()
-      const remaining = nameMatch ? line.slice(nameMatch.index! + nameMatch[0].length).trim() : ''
+      const lineClean = stripPageHeader(line)
+      const nameMatch = lineClean.match(SECTION_RE_CI)
+      const name = (nameMatch ? nameMatch[0] : lineClean).trim()
+      const remaining = nameMatch ? lineClean.slice(nameMatch.index! + nameMatch[0].length).trim() : ''
 
       if (sections.length > 0 && sections[sections.length - 1].rows.length === 0) {
-        // Replace empty section name (e.g. from "Receita" fallback)
         sections[sections.length - 1].name = name
       } else {
         sections.push({ name, rows: [] })
