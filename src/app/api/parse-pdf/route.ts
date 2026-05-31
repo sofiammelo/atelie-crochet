@@ -351,15 +351,29 @@ async function parseWithAI(text: string): Promise<string> {
   if (!apiKey) return ''
 
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    },
-  })
+  const prompt = buildPrompt(text)
+  const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro']
+  let lastError = ''
+  for (const modelName of modelNames) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
+      })
+      const result = await model.generateContent(prompt)
+      const response = result.response.text().trim()
+      const json = response.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+      JSON.parse(json)
+      return json
+    } catch (e: any) {
+      lastError = e?.message?.slice(0, 200) || 'unknown'
+    }
+  }
+  return 'AI_ERR:' + lastError
+}
 
-  const prompt = `You are a crochet pattern parser. Given raw text extracted from a PDF, output JSON exactly matching:
+function buildPrompt(text: string): string {
+  return `You are a crochet pattern parser. Given raw text extracted from a PDF, output JSON exactly matching:
 
 {
   "title": string,
@@ -391,30 +405,8 @@ RULES (follow strictly):
 
 7. OUTPUT valid JSON only. No markdown fences, no trailing commas.
 
-EXAMPLE (study this pattern):
-Input raw text has sections like "HEAD (beige)", then rounds R1-R22 with notes about eyes and stuffing, then "BODY (lavender, black, beige)" with rounds, then "ARMS (make 2)" etc. with color changes.
-
-Expected output for materials is each item on its own line, like:
-"Any yarn in beige, lavender, black, purple...
-a pair of safety eyes and washer (I use 10mm)
-Crochet hook that matches the size of your yarn
-..."
-
-Expected sections: HEAD with rows [note "Color: beige", instruction "R1: 6sc...", instruction "R2: inc x6...", ..., note "Insert the eyes...", instruction "R21: ...", note "Slst, fasten off..."]. Then BODY similarly. Then ARMS (make 2), LEGS (make 2), HAIR BASE, OUTER, POCKETS, CHEST DETAIL, HOODIE, SIDEBURNS, CAT EARS, BACKPACK STRAPS, BACKPACK, BACKPACK DETAIL, HAIRPINS, FRONT HAIR, BUTTERFLIES, ASSEMBLY - PART 1, ASSEMBLY - LOWER BACK HAIR, ASSEMBLY - MIDDLE HAIR LINE, ASSEMBLY - FINAL DETAILS.
-
 Now process this raw text:
 ${text}`
-
-  try {
-    const result = await model.generateContent(prompt)
-    const response = result.response.text().trim()
-    // Remove any markdown fences if present
-    const json = response.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
-    JSON.parse(json) // validate
-    return json
-  } catch (e: any) {
-    return 'AI_ERR:' + (e?.message?.slice(0, 200) || 'unknown')
-  }
 }
 
 // ── Main ──
