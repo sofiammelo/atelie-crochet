@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const ROUND_RE = /(?:R\s*\d+(?:\s*-\s*R?\s*\d+)?[\s.]|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)/i
 
@@ -345,24 +344,34 @@ function buildRecipe(text: string, type: string) {
   return JSON.stringify(recipe)
 }
 
-// ── AI parser (via Google Gemini) ──
+// ── AI parser (via Google Gemini REST API) ──
 async function parseWithAI(text: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) return ''
 
-  const genAI = new GoogleGenerativeAI(apiKey)
   const prompt = buildPrompt(text)
-  const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro']
+  const modelNames = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro']
   let lastError = ''
   for (const modelName of modelNames) {
     try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
-      })
-      const result = await model.generateContent(prompt)
-      const response = result.response.text().trim()
-      const json = response.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.1 },
+          }),
+        }
+      )
+      const data = await res.json()
+      if (!res.ok) {
+        lastError = `${res.status} ${data?.error?.message || res.statusText}`
+        continue
+      }
+      const response = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      const json = response.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
       JSON.parse(json)
       return json
     } catch (e: any) {
