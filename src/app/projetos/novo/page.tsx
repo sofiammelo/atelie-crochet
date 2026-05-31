@@ -58,8 +58,13 @@ export default function NewProjectPage() {
       formData.append('pdf', file)
       const res = await fetch('/api/parse-pdf', { method: 'POST', body: formData })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Falha ao processar PDF')
+        if (res.status === 413) {
+          throw new Error('PDF muito grande (máx 4.5MB). Comprime ou usa um PDF menor.')
+        }
+        const text = await res.text()
+        let msg = text
+        try { const j = JSON.parse(text); msg = j.error || msg } catch {}
+        throw new Error(msg || 'Falha ao processar PDF')
       }
       const data = await res.json()
       setParseDiag(data.diag || '')
