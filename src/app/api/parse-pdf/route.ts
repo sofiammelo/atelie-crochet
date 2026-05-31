@@ -1,32 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRequire } from 'module'
 
 const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
 
-// Real Node.js require (bypasses webpack module resolution)
-const _require = createRequire(import.meta.url)
-
-// ── Canvas loader (uses createRequire to bypass webpack) ──
-function loadCanvasSync(): any {
+// Canvas loader — uses dynamic import to avoid webpack bundling
+async function loadCanvas(): Promise<any> {
   for (const name of ['@napi-rs/canvas', 'canvas']) {
-    try { return _require(name) } catch {}
+    try {
+      const mod = await import(name)
+      return mod.createCanvas ? mod : mod.default || mod
+    } catch {}
   }
   return null
 }
 
-// ── Init pdfjs and fix worker path for Vercel ──
+// ── Init pdfjs (pdfjs-dist is externalized, worker resolves from node_modules) ──
 async function initPdfjs() {
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  // Default workerSrc is "./pdf.worker.mjs" — a relative path that can't resolve
-  // in webpack-bundled code on Vercel. Resolve it to an absolute path using
-  // createRequire (bypasses webpack module resolution).
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = _require.resolve(
-      'pdfjs-dist/legacy/build/pdf.worker.mjs'
-    )
-  } catch {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/legacy/build/pdf.worker.mjs'
-  }
   return pdfjsLib
 }
 
@@ -34,7 +23,7 @@ async function initPdfjs() {
 async function renderPages(buffer: Buffer): Promise<Buffer[]> {
   const { getDocument } = await initPdfjs()
   const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
-  const Canvas = loadCanvasSync()
+  const Canvas = await loadCanvas()
   if (!Canvas) return []
 
   const images: Buffer[] = []
