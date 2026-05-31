@@ -359,7 +359,7 @@ async function parseWithAI(text: string): Promise<string> {
     },
   })
 
-  const prompt = `You are a crochet pattern parser. Given raw text extracted from a PDF, output a JSON object exactly matching this TypeScript type:
+  const prompt = `You are a crochet pattern parser. Given raw text extracted from a PDF, output JSON exactly matching:
 
 {
   "title": string,
@@ -374,19 +374,35 @@ async function parseWithAI(text: string): Promise<string> {
   ]
 }
 
-Rules:
-- "title" is the pattern name (e.g. "Clove", "1Up Mushroom"). Use empty string if unclear.
-- "materials" is a plain text summary of all materials, yarns, hooks, and tools. Join with newlines. Empty string if none found.
-- "sections" is an array of pattern sections. Each section has a name (e.g. "Body", "Head", "Legs", "Arms", "Assembly", "Cap", "Stipe", "Spot", "Ears", "Hair", "Backpack") and rows.
-- Each row has an "instruction" (the text) and "type":
-  - "instruction" = actual crochet steps (rounds, rows, increases, decreases, etc.)
-  - "note" = tips, assembly notes, copyright text, abbreviations explanations, sealing methods, any text that is not a direct crochet instruction
-- Combine consecutive rows of the same type within a section when they are part of the same logical step.
-- Remove irrelevant content: page numbers, headers, footers, URLs, copyright lines, image references, promotion text, links to social media.
-- Important: keep ALL actual crochet instructions. Do not lose any rounds or rows.
-- The JSON must be valid. No trailing commas. No markdown fences. Only the JSON object.
+RULES (follow strictly):
+1. REMOVE ALL promotional/copyright text: Instagram handles, website URLs, discount offers, "follow me", "DM me", "thank you for purchasing", "support me", copyright notices, "all rights reserved", "do not duplicate", "personal use only", PDF metadata, page numbers, headers/footers. This is IRRELEVANT and must be DISCARDED.
 
-Raw text:
+2. MATERIALS: List each item on its own line. Include yarn colors, hook sizes, safety eyes, stuffing, needles, etc. Do NOT include the artist's yarn brand pitch or size notes.
+
+3. SECTIONS: Detect each pattern section (HEAD, BODY, ARMS, LEGS, HAIR BASE, OUTER, POCKETS, ASSEMBLY, etc.). When a section has sub-parts (like "Assembly - Part 1", "Assembly - Lower Back Hair"), create separate sections for each.
+
+4. ROWS within each section:
+   - "instruction": actual crochet steps — rounds (R1, R2...), chains, stitches, repeats. Includes color changes "(change to lavender)".
+   - "note": useful tips that affect construction — stuffing, sewing instructions, color cues, flipping piece inside out, fasten off, leave tail. Also "Color: ..." lines, "(make 2)" notes, "Work in BLO/FLO" instructions.
+
+5. Keep ALL actual crochet instructions and useful notes. Lose NOTHING that affects the finished piece.
+
+6. Assembly steps are INSTRUCTIONS (type "instruction"), not notes. They are numbered steps showing how to put pieces together.
+
+7. OUTPUT valid JSON only. No markdown fences, no trailing commas.
+
+EXAMPLE (study this pattern):
+Input raw text has sections like "HEAD (beige)", then rounds R1-R22 with notes about eyes and stuffing, then "BODY (lavender, black, beige)" with rounds, then "ARMS (make 2)" etc. with color changes.
+
+Expected output for materials is each item on its own line, like:
+"Any yarn in beige, lavender, black, purple...
+a pair of safety eyes and washer (I use 10mm)
+Crochet hook that matches the size of your yarn
+..."
+
+Expected sections: HEAD with rows [note "Color: beige", instruction "R1: 6sc...", instruction "R2: inc x6...", ..., note "Insert the eyes...", instruction "R21: ...", note "Slst, fasten off..."]. Then BODY similarly. Then ARMS (make 2), LEGS (make 2), HAIR BASE, OUTER, POCKETS, CHEST DETAIL, HOODIE, SIDEBURNS, CAT EARS, BACKPACK STRAPS, BACKPACK, BACKPACK DETAIL, HAIRPINS, FRONT HAIR, BUTTERFLIES, ASSEMBLY - PART 1, ASSEMBLY - LOWER BACK HAIR, ASSEMBLY - MIDDLE HAIR LINE, ASSEMBLY - FINAL DETAILS.
+
+Now process this raw text:
 ${text}`
 
   try {
