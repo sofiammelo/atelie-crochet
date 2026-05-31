@@ -406,7 +406,7 @@ RULES (follow strictly):
 
 4. CHARACTER PREFIX: If a pattern has multiple characters (e.g., "Tiana" and "Sapito Naveen" / "Príncipe Naveen"), prefix section names with the character name like "TIANA — Cabeza", "SAPITO NAVEEN — Patitas". Detect character names from headings in the text.
 
-5. MERGE related sections: If "Base" appears right after or near "Cabello" (same body part), merge them into one combined section like "Cabello (Base)". Don't split them.
+5. HIERARCHICAL naming: When a sub-section clearly belongs to a previous body part (e.g., "Moño" belongs to "Cabello", "Primera Pierna" belongs to "Cuerpo"), name it with the parent in parentheses: "Cabello (Moño)", "Cuerpo (Primera Pierna)", "Cuerpo (Borde Inferior de los Zapatos)". This applies to ALL sub-parts.
 
 6. ROWS within each section:
    - "instruction": actual crochet steps — rounds (R1, R2...), chains, stitches, repeats. Includes color changes "(change to lavender)".
