@@ -402,11 +402,13 @@ RULES (follow strictly):
 
 2. MATERIALS: List each item on its own line. Include yarn colors, hook sizes, safety eyes, stuffing, needles, etc. Do NOT include the artist's yarn brand pitch or size notes.
 
-3. SECTIONS: Detect each pattern section (HEAD, BODY, ARMS, LEGS, HAIR BASE, OUTER, POCKETS, ASSEMBLY, etc.). When a section has sub-parts (like "Assembly - Part 1", "Assembly - Lower Back Hair"), create separate sections for each.
+3. SECTIONS: Detect each pattern section. ANY line that names a body part, feature, or step to be made should start a NEW section — examples: HEAD, BODY, ARMS, LEGS, HAIR BASE, OUTER, POCKETS, ASSEMBLY, but also Branco dos olhos, Sobrancelhas, Nariz, Expressão, Orelhas, Barba, Bigode, Cabelo, Túnica, Manto, Sandálias, Mangas. If it reads like a sub-heading, make it a section. Do NOT bury sub-headings as notes inside another section.
 
 4. ROWS within each section:
    - "instruction": actual crochet steps — rounds (R1, R2...), chains, stitches, repeats. Includes color changes "(change to lavender)".
    - "note": useful tips that affect construction — stuffing, sewing instructions, color cues, flipping piece inside out, fasten off, leave tail. Also "Color: ..." lines, "(make 2)" notes, "Work in BLO/FLO" instructions.
+   - If a line is ONLY a vague video reference like "(veja o vídeo de apoio)" with no other content, discard it.
+   - If a video reference is attached to a real instruction, keep the instruction and discard the video reference.
 
 5. Keep ALL actual crochet instructions and useful notes. Lose NOTHING that affects the finished piece.
 
