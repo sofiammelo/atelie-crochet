@@ -135,7 +135,15 @@ function hasRealCrochetText(text: string): boolean {
 }
 
 // ── Amigurumi section/round/note parser ──
+
+// Multi-word names MUST come before single-word to match first
 const SECTION_NAMES = [
+  'Notas finais', 'Notas finaes', 'Notas Finais',
+  'Morango Folha', 'Morango Fresa',
+  'Instruções', 'Instrucciones', 'Instructions',
+  'Barriga', 'Belly', 'Tronco', 'Trunk', 'Casco', 'Hoof',
+  'Mane', 'Juba', 'Crin',
+  'Saia', 'Skirt', 'Laço', 'Bow', 'Chapéu', 'Hat',
   'Corpo', 'Cuerpo', 'Body', 'Cabeça', 'Cabeza', 'Head',
   'Braço', 'Braços', 'Brazo', 'Brazos', 'Arm', 'Arms',
   'Perna', 'Pernas', 'Pierna', 'Piernas', 'Leg', 'Legs',
@@ -146,21 +154,17 @@ const SECTION_NAMES = [
   'Asa', 'Asas', 'Ala', 'Alas', 'Wing', 'Wings',
   'Bico', 'Pico', 'Beak',
   'Morango', 'Strawberry', 'Folha', 'Leaf', 'Tallo', 'Stem',
-  'Barriga', 'Belly', 'Tronco', 'Trunk', 'Casco', 'Hoof',
-  'Mane', 'Juba', 'Crin',
-  'Saia', 'Skirt', 'Laço', 'Bow', 'Chapéu', 'Hat',
-  'Notas finais', 'Notas finaes', 'Notas finais',
-  'Instruções', 'Instrucciones', 'Instructions',
 ]
 
-// Build a regex that matches section names as whole words
-const SECTION_RE = new RegExp(`\\b(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?`, 'i')
+// Case-sensitive regex: section titles are capitalized in patterns
+const SECTION_RAW = SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')
+const SECTION_RE = new RegExp(`(?:${SECTION_RAW})(?:\\s*\\(\\s*2\\s*x\\s*\\))?`)
 
-// Build a regex that matches section names preceded by a strong boundary
+// Split a line at ANY whitespace before a known section name (case-sensitive)
 function splitAtSectionBoundaries(line: string): string[] {
   const parts: string[] = []
-  // Match section names after: start-of-line, ". ", ") ", or "  " (2+ spaces)
-  const re = new RegExp(`(?:^|\\.\\s+|\\)\\s+|\\s{2,})(?=(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?)`, 'gi')
+  // Match section name after whitespace (any), but NOT inside words (use \b)
+  const re = new RegExp(`(?:^|\\s+)(?=(?:${SECTION_RAW})(?:\\s*\\(\\s*2\\s*x\\s*\\))?)`, 'g')
   let last = 0
   let m: RegExpExecArray | null
   while ((m = re.exec(line)) !== null) {
@@ -176,22 +180,20 @@ function splitAtSectionBoundaries(line: string): string[] {
   return parts.filter(Boolean)
 }
 
+// Check line STARTS with a section name (index 0), no length limit
 function looksLikeSectionTitle(line: string): boolean {
-  if (line.length > 55) return false
-  if (ROUND_RE.test(line)) return false
   if (/^\d/.test(line)) return false
   if (/^[a-z]/.test(line)) return false
-  // Check that line starts with or IS a section name
   const match = line.match(SECTION_RE)
-  if (!match) return false
-  // The section name should be at or near the start
-  return match.index !== undefined && match.index <= 3
+  if (!match || match.index !== 0) return false
+  // Only check the section name itself against ROUND_RE, not the whole line
+  return !ROUND_RE.test(match[0])
 }
 
 function splitIntoRows(line: string): { instruction: string; type: 'instruction' | 'note' }[] {
   const rows: { instruction: string; type: 'instruction' | 'note' }[] = []
-  // Split at ) + spaces before round marker, or . + spaces before round/note marker,
-  // or 3+ spaces before round marker, or any space before Nota:
+  // Split at ) + spaces before round marker, or . + 2+ spaces before round marker,
+  // or 3+ spaces before round marker, or space before Nota:
   const re = /(?:(?<=\))\s+(?=R\s*\d+(?:-\d+)?[\.\s])|(?<=\.)\s{2,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=[Nn]ota:))/gi
   const segments = line.split(re).filter(Boolean)
 
@@ -222,30 +224,25 @@ function parseSections(text: string) {
   const sections: { name: string; rows: { instruction: string; type: 'instruction' | 'note' }[] }[] = []
   let inMaterials = false
 
-  // First pass: expand lines that contain section boundaries within them
+  // First pass: expand long lines that contain multiple sections
   const expanded: string[] = []
   for (const line of lines) {
-    // Check if line contains a section name at a boundary
-    const boundaryRe = new RegExp(`(?:\\.\\s+|\\)\\s+|\\s{2,})(?=(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?)`, 'gi')
-    if (boundaryRe.test(line) && line.length > 60) {
-      const sub = splitAtSectionBoundaries(line)
-      expanded.push(...sub)
+    if (line.length > 60 && splitAtSectionBoundaries(line).length > 1) {
+      expanded.push(...splitAtSectionBoundaries(line))
     } else {
       expanded.push(line)
     }
   }
 
   for (const line of expanded) {
-    const lower = line.toLowerCase()
-
-    // Materials detection
-    if (!inMaterials && /^material/i.test(line)) {
+    // Materials detection — trigger on "Materiais" or "Material" at line start
+    if (!inMaterials && /^Materiais?\b/i.test(line)) {
       inMaterials = true
       materials.push(line)
       continue
     }
     if (inMaterials) {
-      if (looksLikeSectionTitle(line) || (ROUND_RE.test(line) && line.length < 50)) {
+      if (looksLikeSectionTitle(line) || ROUND_RE.test(line)) {
         inMaterials = false
       } else {
         materials.push(line)
@@ -253,22 +250,28 @@ function parseSections(text: string) {
       }
     }
 
-    // Section title
+    // Section title — starts with a known section name
     if (looksLikeSectionTitle(line)) {
-      // Use the cleaned section name
       const nameMatch = line.match(SECTION_RE)
-      const name = nameMatch ? line.slice(nameMatch.index || 0) : line
-      if (sections.length === 0 || sections[sections.length - 1].rows.length > 0) {
-        sections.push({ name, rows: [] })
-      } else {
+      const name = (nameMatch ? nameMatch[0] : line).trim()
+      const remaining = nameMatch ? line.slice(nameMatch.index! + nameMatch[0].length).trim() : ''
+
+      if (sections.length > 0 && sections[sections.length - 1].rows.length === 0) {
+        // Replace empty section name (e.g. from "Receita" fallback)
         sections[sections.length - 1].name = name
+      } else {
+        sections.push({ name, rows: [] })
+      }
+
+      if (remaining) {
+        const rows = splitIntoRows(remaining)
+        sections[sections.length - 1].rows.push(...rows)
       }
       continue
     }
 
     if (sections.length === 0) sections.push({ name: 'Receita', rows: [] })
     const current = sections[sections.length - 1]
-
     const rows = splitIntoRows(line)
     current.rows.push(...rows)
   }
