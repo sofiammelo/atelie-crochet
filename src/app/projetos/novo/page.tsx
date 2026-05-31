@@ -16,6 +16,7 @@ export default function NewProjectPage() {
   const [pdfError, setPdfError] = useState('')
   const [parsedRecipe, setParsedRecipe] = useState<any>(null)
   const [pdfBase64, setPdfBase64] = useState('')
+  const [parseDiag, setParseDiag] = useState('')
 
   // Tapestry - pixel upload
   const [pixelFile, setPixelFile] = useState<File | null>(null)
@@ -61,6 +62,7 @@ export default function NewProjectPage() {
         throw new Error(err.error || 'Falha ao processar PDF')
       }
       const data = await res.json()
+      setParseDiag(data.diag || '')
       if (data.recipe) {
         setPdfText(data.text || '')
         setParsedRecipe(JSON.parse(data.recipe))
@@ -283,6 +285,7 @@ export default function NewProjectPage() {
             )}
             {parsedRecipe && (
               <div style={{ marginTop: 8, padding: 12, borderRadius: 10, background: C.sagePale, border: `1px solid ${C.sage}40`, fontSize: 12, color: C.inkLight, lineHeight: 1.6 }}>
+                {parseDiag && <div style={{ marginBottom: 6, fontSize: 11, color: C.muted }}>🔍 {parseDiag}</div>}
                 <strong>Materiais:</strong> {parsedRecipe.materials?.substring(0, 100) || '—'}
                 <br />
                 <strong>Seções:</strong> {(parsedRecipe.sections || []).map((s: any) => s.name).join(', ')}
