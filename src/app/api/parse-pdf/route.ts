@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ROUND_RE = /(?:R\s*\d+[\s.]|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)/i
 
-const SECTION_NAMES_REGEX = /^(Corpo|Braço|Perna|Orelha|Olho|Focinho|Cabeça|Rabo|Asa|Bico|Antena|Chapéu|Laço|Saia|Braços|Pernas|Orelhas|Olhos|Cabeza|Cuerpo|Pierna|Brazo|Oreja|Ojo|Hocico|Rabo|Ala|Pico|Antena|Sombrero|Lazo|Falda|Morango|Folha|Tallo|Casco|Barriga|Tronco|Rabo|Crin|Juba|Rabo|Asas|Brazos|Piernas|Orejas|Cuerpo|Cabeza|Body|Head|Arm|Leg|Ear|Eye|Snout|Tail|Wing|Beak|Antenna|Hat|Bow|Skirt|Strawberry|Leaf|Stem|Hoof|Belly|Trunk|Mane)/i
-
 // Canvas loader — uses dynamic import to avoid webpack bundling
 async function loadCanvas(): Promise<any> {
   for (const name of ['@napi-rs/canvas', 'canvas']) {
@@ -158,24 +156,22 @@ const SECTION_NAMES = [
 // Build a regex that matches section names as whole words
 const SECTION_RE = new RegExp(`\\b(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?`, 'i')
 
-// Only treat as section title if it appears at a strong boundary
-function splitAtSectionBoundaries(text: string): string[] {
+// Build a regex that matches section names preceded by a strong boundary
+function splitAtSectionBoundaries(line: string): string[] {
   const parts: string[] = []
-  const re = new RegExp(`(?:^|[.))\\s]{2,}|\\n)(?=(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?\\b)`, 'gi')
+  // Match section names after: start-of-line, ". ", ") ", or "  " (2+ spaces)
+  const re = new RegExp(`(?:^|\\.\\s+|\\)\\s+|\\s{2,})(?=(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?)`, 'gi')
   let last = 0
   let m: RegExpExecArray | null
-  while ((m = re.exec(text)) !== null) {
-    const preceding = m[0]
-    const boundaryLen = preceding.length
-    // Include the boundary text up to just before the section name
-    const segmentEnd = m.index + boundaryLen
-    if (segmentEnd > last) {
-      parts.push(text.slice(last, segmentEnd).trim())
+  while ((m = re.exec(line)) !== null) {
+    const boundaryEnd = m.index + m[0].length
+    if (boundaryEnd > last) {
+      parts.push(line.slice(last, boundaryEnd).trim())
     }
-    last = segmentEnd
+    last = boundaryEnd
   }
-  if (last < text.length) {
-    parts.push(text.slice(last).trim())
+  if (last < line.length) {
+    parts.push(line.slice(last).trim())
   }
   return parts.filter(Boolean)
 }
@@ -194,9 +190,9 @@ function looksLikeSectionTitle(line: string): boolean {
 
 function splitIntoRows(line: string): { instruction: string; type: 'instruction' | 'note' }[] {
   const rows: { instruction: string; type: 'instruction' | 'note' }[] = []
-  // Split at strong boundaries followed by round markers
-  // Strategy: split at .  (period+2+spaces) or ) + spaces or multiple spaces when followed by R#
-  const re = /(?:(?<=\))\s+(?=R\s*\d+(?:-\d+)?[\.\s])|(?<=\.)\s{2,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=Nota:))/gi
+  // Split at ) + spaces before round marker, or . + spaces before round/note marker,
+  // or 3+ spaces before round marker, or any space before Nota:
+  const re = /(?:(?<=\))\s+(?=R\s*\d+(?:-\d+)?[\.\s])|(?<=\.)\s{2,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=[Nn]ota:))/gi
   const segments = line.split(re).filter(Boolean)
 
   for (const seg of segments) {
@@ -205,12 +201,12 @@ function splitIntoRows(line: string): { instruction: string; type: 'instruction'
 
     if (/^(?:Nota|NOTA|nota):/.test(s)) {
       rows.push({ instruction: s, type: 'note' })
-    } else if (ROUND_RE.test(s)) {
+    } else if (/nota:/i.test(s)) {
+      rows.push({ instruction: s, type: 'note' })
+    } else if (ROUND_RE.test(s) && !/nota:/i.test(s)) {
       rows.push({ instruction: s, type: 'instruction' })
     } else if (/^\d/.test(s) || /^(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr|pe|slst)/i.test(s)) {
       rows.push({ instruction: s, type: 'instruction' })
-    } else if (/nota:/i.test(s)) {
-      rows.push({ instruction: s, type: 'note' })
     } else if (/^[·•x]\s*/.test(s) || /^[A-ZÀ-ÿ]/.test(s)) {
       rows.push({ instruction: s, type: 'note' })
     } else {
@@ -229,8 +225,8 @@ function parseSections(text: string) {
   // First pass: expand lines that contain section boundaries within them
   const expanded: string[] = []
   for (const line of lines) {
-    // Check if line contains a section name at a boundary that isn't at the start
-    const boundaryRe = new RegExp(`(?:[.))\\s]{2,})(?=(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?\\b)`, 'gi')
+    // Check if line contains a section name at a boundary
+    const boundaryRe = new RegExp(`(?:\\.\\s+|\\)\\s+|\\s{2,})(?=(?:${SECTION_NAMES.map(n => n.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|')})(?:\\s*\\(\\s*2\\s*x\\s*\\))?)`, 'gi')
     if (boundaryRe.test(line) && line.length > 60) {
       const sub = splitAtSectionBoundaries(line)
       expanded.push(...sub)
