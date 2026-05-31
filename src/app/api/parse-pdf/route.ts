@@ -139,11 +139,14 @@ function hasRealCrochetText(text: string): boolean {
 // Multi-word names MUST come before single-word to match first
 const SECTION_NAMES = [
   'Notas finais', 'Notas finaes', 'Notas Finais',
+  'Abbreviations', 'Abreviaturas',
   'Morango Folha', 'Morango Fresa',
   'Instruções', 'Instrucciones', 'Instructions',
   'Barriga', 'Belly', 'Tronco', 'Trunk', 'Casco', 'Hoof',
   'Mane', 'Juba', 'Crin',
   'Saia', 'Skirt', 'Laço', 'Bow', 'Chapéu', 'Hat',
+  'Cap', 'Stipe', 'Spot', 'Spots', 'Stem',
+  'Assembly', 'Montagem', 'Montaje',
   'Corpo', 'Cuerpo', 'Body', 'Cabeça', 'Cabeza', 'Head',
   'Braço', 'Braços', 'Brazo', 'Brazos', 'Arm', 'Arms',
   'Perna', 'Pernas', 'Pierna', 'Piernas', 'Leg', 'Legs',
@@ -154,6 +157,8 @@ const SECTION_NAMES = [
   'Asa', 'Asas', 'Ala', 'Alas', 'Wing', 'Wings',
   'Bico', 'Pico', 'Beak',
   'Morango', 'Strawberry', 'Folha', 'Leaf', 'Tallo', 'Stem',
+  'Sapato', 'Shoe', 'Shoes',
+  'Cabelo', 'Hair', 'Chapeu',
 ]
 
 // Case-sensitive regex: section titles are capitalized in patterns
@@ -186,8 +191,36 @@ function looksLikeSectionTitle(line: string): boolean {
   if (/^[a-z]/.test(line)) return false
   const match = line.match(SECTION_RE)
   if (!match || match.index !== 0) return false
-  // Only check the section name itself against ROUND_RE, not the whole line
   return !ROUND_RE.test(match[0])
+}
+
+// Filter out PDF extraction artifacts (page numbers, URLs, bare numbers, etc.)
+function filterArtifacts(lines: string[]): string[] {
+  return lines.filter(l => {
+    // Skip bare page numbers
+    if (/^\d{1,2}$/.test(l)) return false
+    if (/^\d{1,2}\s*$/.test(l)) return false
+    // Skip bare URLs
+    if (/^https?:\/\//i.test(l)) return false
+    if (/^www\./i.test(l)) return false
+    // Skip image references (Image 1, Photo 2, etc.)
+    if (/^(Image|Photo|Figura|Imagem|Foto)\s*\d+/i.test(l)) return false
+    // Skip navigation/copyright lines
+    if (/\.com\s+\d+\s*$/.test(l) && l.split(/\s+/).length < 4) return false
+    // Skip lines that are just a few stray chars
+    if (l.replace(/[\s.,;:!?\-–—()]+/g, '').length < 2) return false
+    return true
+  })
+}
+
+function looksLikeCrochetInstruction(s: string): boolean {
+  if (/^R\s*\d+(?:\s*-\s*R?\s*\d+)?[\s.]/.test(s)) return true
+  if (/^F\s*\d+[\s.]/.test(s)) return true
+  if (/^(?:Carreira|Carr|C|Volta|Vuelta|Round|Rnd)\s*\d+/i.test(s)) return true
+  if (/^\d+\s*(?:[A-ZÄ-Ü][a-zä-ü]+|[A-ZÄ-Ü]{2,})/.test(s)) return true
+  if (/^\(\s*\d+/.test(s) && /(?:Sc|Pb|Inc|Aum|Dec|Dis|Ch|Corr|Dc|Pa|Tr)\b/i.test(s)) return true
+  if (/^\d+\s*(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr|pe|slst|pa|dc|tr|pt|punto|x)\b/i.test(s)) return true
+  return false
 }
 
 function splitIntoRows(line: string): { instruction: string; type: 'instruction' | 'note' }[] {
@@ -199,9 +232,7 @@ function splitIntoRows(line: string): { instruction: string; type: 'instruction'
     const s = seg.trim()
     if (!s) continue
 
-    if (/^R\s*\d+(?:\s*-\s*R?\s*\d+)?[\s.]/.test(s) || /^F\s*\d+[\s.]/.test(s) || /^(?:Carreira|Carr|C|Volta|Vuelta|Round|Rnd)\s*\d+/i.test(s)) {
-      rows.push({ instruction: s, type: 'instruction' })
-    } else if (/^\d/.test(s) || /^(?:pb|sc|aum|inc|dis|dec|corr|cad|ch|am|mr|pe|slst|x)\b/i.test(s)) {
+    if (looksLikeCrochetInstruction(s)) {
       rows.push({ instruction: s, type: 'instruction' })
     } else {
       rows.push({ instruction: s, type: 'note' })
@@ -211,7 +242,8 @@ function splitIntoRows(line: string): { instruction: string; type: 'instruction'
 }
 
 function parseSections(text: string) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const lines = filterArtifacts(rawLines)
   const materials: string[] = []
   const sections: { name: string; rows: { instruction: string; type: 'instruction' | 'note' }[] }[] = []
   let inMaterials = false
@@ -227,8 +259,8 @@ function parseSections(text: string) {
   }
 
   for (const line of expanded) {
-    // Materials detection — trigger on "Materiais" or "Material" at line start
-    if (!inMaterials && /^Materiais?\b/i.test(line)) {
+    // Materials detection — trigger on material keywords
+    if (!inMaterials && /^(?:Materiais?|Material|Materials?|Instruments?|You will need|Supplies?|What you need|Ferramentas?|Herramientas?)/i.test(line)) {
       inMaterials = true
       materials.push(line)
       continue
@@ -272,7 +304,19 @@ function parseSections(text: string) {
     sections.push({ name: 'Receita', rows: expanded.flatMap(l => splitIntoRows(l)) })
   }
 
-  return { materials, sections }
+  // Merge adjacent sections with same name, remove empty ones
+  const merged: typeof sections = []
+  for (const sec of sections) {
+    if (sec.rows.length === 0) continue
+    const last = merged[merged.length - 1]
+    if (last && last.name === sec.name) {
+      last.rows.push(...sec.rows)
+    } else {
+      merged.push({ ...sec, rows: [...sec.rows] })
+    }
+  }
+
+  return { materials, sections: merged }
 }
 
 function buildRecipe(text: string, type: string) {
