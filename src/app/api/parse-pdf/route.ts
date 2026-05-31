@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ROUND_RE = /^(?:R\s*\d+|Carreira\s+\d+|Carr\s+\d+|C\s*\d+|F\s*\d+|Volta\s+\d+|Vuelta\s+\d+|Round\s+\d+|Rnd\s+\d+)\b/i
 
+// Dynamic require (eval prevents webpack static analysis)
+const _require = eval('require')
+
 // ── Canvas loader ──
-async function loadCanvas(): Promise<any> {
-  // @napi-rs/canvas (prebuilt for Windows + Linux)
-  try { return Function('return require("@napi-rs/canvas")')() } catch {}
-  // node-canvas fallback (prebuilt for Linux only)
-  try { return Function('return require("canvas")')() } catch {}
+function loadCanvasSync(): any {
+  for (const name of ['@napi-rs/canvas', 'canvas']) {
+    try { return _require(name) } catch {}
+  }
   return null
 }
 
@@ -15,7 +17,7 @@ async function loadCanvas(): Promise<any> {
 async function renderPages(buffer: Buffer): Promise<Buffer[]> {
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const doc = await getDocument({ data: new Uint8Array(buffer) }).promise
-  const Canvas = await loadCanvas()
+  const Canvas = loadCanvasSync()
   if (!Canvas) return []
 
   const images: Buffer[] = []
@@ -34,7 +36,7 @@ async function renderPages(buffer: Buffer): Promise<Buffer[]> {
         const png = toBuf.call(c, 'image/png')
         if (png && png.length > 100) images.push(Buffer.from(png))
       }
-    } catch { /* page render failed, skip */ }
+    } catch { /* page render failed */ }
   }
   return images
 }
@@ -94,11 +96,9 @@ async function ocrFallback(buffer: Buffer): Promise<string> {
     }
   } catch { /* sharp not available or no PDF support */ }
 
-  // Try pdfjs-dist + canvas render
+  // Try pdfjs-dist + canvas render (requires @napi-rs/canvas or canvas)
   if (images.length === 0) {
-    try {
-      images = await renderPages(buffer)
-    } catch { /* canvas render failed */ }
+    try { images = await renderPages(buffer) } catch { /* canvas render failed */ }
   }
 
   if (images.length === 0) return ''
@@ -244,7 +244,6 @@ export async function POST(request: NextRequest) {
       } catch (e: any) { diag.push('ocr err:' + e?.message?.slice(0, 60)) }
     }
 
-    // Validate
     if (text.trim() && !hasRealCrochetText(text)) {
       diag.push('failed validation')
       text = ''
