@@ -194,7 +194,7 @@ function splitIntoRows(line: string): { instruction: string; type: 'instruction'
   const rows: { instruction: string; type: 'instruction' | 'note' }[] = []
   // Split at ) + spaces before round marker, or . + 2+ spaces before round marker,
   // or 3+ spaces before round marker, or space before Nota:
-  const re = /(?:(?<=\))\s+(?=R\s*\d+(?:-\d+)?[\.\s])|(?<=\.)\s{2,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=[Nn]ota:))/gi
+  const re = /(?:(?<=\))\s+(?=R\s*\d+(?:-\d+)?[\.\s])|(?<=\.)\s+(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=F\s*\d+[\.\s])|\s{3,}(?=R\s*\d+(?:-\d+)?[\.\s])|(?:(?<=\.)|(?<=\)))\s+(?=[Nn]ota:))/gi
   const segments = line.split(re).filter(Boolean)
 
   for (const seg of segments) {
