@@ -114,8 +114,40 @@ export function RecipeEditor({
       </div>
 
       {sections.map(sec => (
-        <div key={sec.id} style={{ ...S.card, padding: 16 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <div key={sec.id}
+          draggable
+          onDragStart={e => {
+            e.dataTransfer.setData('text/plain', JSON.stringify({ action: 'section', secId: sec.id }))
+            e.dataTransfer.effectAllowed = 'move'
+            const el = e.currentTarget
+            setTimeout(() => { el.style.opacity = '0.3' }, 0)
+          }}
+          onDragOver={e => {
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+          }}
+          onDrop={e => {
+            e.preventDefault()
+            e.currentTarget.style.removeProperty('opacity')
+            try {
+              const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+              if (data.action !== 'section' || data.secId === sec.id) return
+              setSections(s => {
+                const arr = [...s]
+                const from = arr.findIndex(x => x.id === data.secId)
+                if (from === -1) return s
+                const [removed] = arr.splice(from, 1)
+                const to = arr.findIndex(x => x.id === sec.id)
+                arr.splice(to < from ? to : to + 1, 0, removed)
+                return arr
+              })
+            } catch {}
+          }}
+          onDragEnd={e => { e.currentTarget.style.removeProperty('opacity') }}
+          style={{ ...S.card, padding: 16 }}
+        >
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ cursor: 'grab', color: C.mutedLight, fontSize: 16, userSelect: 'none', flexShrink: 0 }}>&#x2630;</div>
             <input
               style={{ ...S.input, flex: 1 }}
               value={sec.name}
