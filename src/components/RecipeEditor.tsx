@@ -22,6 +22,7 @@ export type Recipe = {
   materials: string
   sections: RecipeSection[]
   notes?: string[]
+  _counter?: number
 }
 
 export function emptyRecipe(): Recipe {

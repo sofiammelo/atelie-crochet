@@ -99,6 +99,7 @@ export default function ProjectDetailPage() {
   const TABS = [
     { id: 'guide', label: 'Guiar', icon: '\u25B6' },
     { id: 'recipe', label: project?.type === 'amigurumi' ? 'Receita' : 'Grade', icon: '\uD83D\uDCCB' },
+    { id: 'counter', label: 'Contar', icon: '\u2795' },
     { id: 'timer', label: 'Tempo', icon: '\u23F1' },
     { id: 'settings', label: 'Opções', icon: '\u2699' },
   ]
@@ -272,6 +273,14 @@ export default function ProjectDetailPage() {
             <PixelTab project={project} pixelGrid={pixelGrid} onUpdate={updateProject} />
           )}
 
+          {/* COUNTER */}
+          {tab === 'counter' && (
+            <CounterSection
+              initialValue={(recipe as any)._counter ?? 0}
+              onChange={v => updateProject({ recipe: JSON.stringify({ ...recipe, _counter: v }) })}
+            />
+          )}
+
           {/* TIMER */}
           {tab === 'timer' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -358,6 +367,52 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CounterSection({ initialValue, onChange }: { initialValue: number; onChange: (v: number) => void }) {
+  const [count, setCount] = useState(initialValue)
+
+  useEffect(() => { setCount(initialValue) }, [initialValue])
+
+  const btnStyle: React.CSSProperties = {
+    width: 60, height: 60, borderRadius: 14, border: 'none', cursor: 'pointer',
+    fontSize: 26, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.15s',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
+      <div style={{
+        ...S.card, padding: 0, display: 'flex', alignItems: 'center', gap: 0,
+        overflow: 'hidden', maxWidth: 300, width: '100%',
+      }}>
+        <button
+          onClick={() => { const v = Math.max(0, count - 1); setCount(v); onChange(v) }}
+          style={{ ...btnStyle, background: C.cream, color: C.ink, borderRadius: 0, borderRight: `1px solid ${C.creamDark}` }}
+        >
+          &minus;
+        </button>
+        <div style={{
+          flex: 1, textAlign: 'center', padding: '14px 0',
+          fontSize: 42, fontWeight: 700, color: C.ink, fontFamily: 'monospace',
+        }}>
+          {count}
+        </div>
+        <button
+          onClick={() => { const v = count + 1; setCount(v); onChange(v) }}
+          style={{ ...btnStyle, background: C.sagePale, color: C.sageDark, borderRadius: 0, borderLeft: `1px solid ${C.creamDark}` }}
+        >
+          +
+        </button>
+      </div>
+      <button
+        onClick={() => { setCount(0); onChange(0) }}
+        style={{ ...S.btnGhost, padding: '10px 24px', fontSize: 13 }}
+      >
+        Resetar
+      </button>
     </div>
   )
 }
