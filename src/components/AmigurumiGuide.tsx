@@ -6,14 +6,10 @@ import type { Recipe } from '@/components/RecipeEditor'
 
 export function AmigurumiGuide({
   recipe,
-  currentLine,
-  onUpdateLine,
-  onCompleteSection,
+  onUpdateProgress,
 }: {
   recipe: Recipe
-  currentLine: number
-  onUpdateLine: (line: number) => void
-  onCompleteSection?: () => void
+  onUpdateProgress: (progress: Record<string, number>) => void
 }) {
   const sections = recipe.sections || []
   const [sectionIdx, setSectionIdx] = useState(0)
@@ -21,6 +17,8 @@ export function AmigurumiGuide({
 
   const sec = sections[sectionIdx]
   const rows = sec?.rows || []
+  const progress = recipe._progress ?? {}
+  const currentLine = progress[sec?.id ?? ''] ?? 0
   const lineInSection = Math.min(currentLine, rows.length - 1)
 
   useEffect(() => {
@@ -48,7 +46,7 @@ export function AmigurumiGuide({
           {sections.map((s, i) => (
             <button
               key={s.id}
-              onClick={() => { setSectionIdx(i); onUpdateLine(0) }}
+              onClick={() => { setSectionIdx(i) }}
               style={{
                 padding: '8px 18px', borderRadius: 20, whiteSpace: 'nowrap',
                 border: `1.5px solid ${i === sectionIdx ? C.sage : C.creamDark}`,
@@ -88,7 +86,7 @@ export function AmigurumiGuide({
           <div
             key={row.id}
             ref={el => { rowRefs.current[i] = el }}
-            onClick={() => onUpdateLine(i)}
+            onClick={() => onUpdateProgress({ ...progress, [sec.id]: i })}
             style={{
               ...S.card,
               padding: '14px 16px',
@@ -149,7 +147,7 @@ export function AmigurumiGuide({
 
       {!allDone ? (
         <button
-          onClick={() => onUpdateLine(currentLine + 1)}
+          onClick={() => onUpdateProgress({ ...progress, [sec.id]: currentLine + 1 })}
           style={{ ...S.btnPrimary, width: '100%', padding: '14px', fontSize: 15 }}
         >
           Linha {currentLine + 1} concluída
@@ -165,7 +163,7 @@ export function AmigurumiGuide({
           </div>
           {sectionIdx < sections.length - 1 && (
             <button
-              onClick={() => { setSectionIdx(sectionIdx + 1); onUpdateLine(0) }}
+              onClick={() => { setSectionIdx(sectionIdx + 1) }}
               style={{ ...S.btnPrimary, marginTop: 12, background: C.success }}
             >
               Próxima seção &rarr;

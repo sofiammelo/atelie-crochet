@@ -168,8 +168,13 @@ export default function ProjectDetailPage() {
           {tab === 'guide' && project.type === 'amigurumi' && (
             <AmigurumiGuide
               recipe={recipe}
-              currentLine={project.currentLine || 0}
-              onUpdateLine={(line) => updateProject({ currentLine: line, status: line > 0 ? 'in_progress' : project.status })}
+              onUpdateProgress={(progress) => {
+                const updated = { ...recipe, _progress: progress }
+                updateProject({
+                  recipe: JSON.stringify(updated),
+                  status: Object.values(progress).some(v => v > 0) ? 'in_progress' : project.status,
+                })
+              }}
             />
           )}
 
@@ -197,7 +202,7 @@ export default function ProjectDetailPage() {
             editingRecipe
               ? <RecipeEditor
                   recipe={recipe}
-                  onSave={r => { updateProject({ recipe: JSON.stringify(r) }); setEditingRecipe(false) }}
+                  onSave={r => { updateProject({ recipe: JSON.stringify({ ...r, _progress: recipe._progress, _counter: recipe._counter }) }); setEditingRecipe(false) }}
                   onCancel={() => setEditingRecipe(false)}
                 />
               : <>

@@ -23,6 +23,7 @@ export type Recipe = {
   sections: RecipeSection[]
   notes?: string[]
   _counter?: number
+  _progress?: Record<string, number>
 }
 
 export function emptyRecipe(): Recipe {
@@ -31,19 +32,6 @@ export function emptyRecipe(): Recipe {
 
 export function parseRecipe(json: string): Recipe {
   try { return JSON.parse(json) } catch { return emptyRecipe() }
-}
-
-function moveRow(sections: RecipeSection[], secId: string, rowId: string, dir: -1 | 1): RecipeSection[] {
-  return sections.map(sec => {
-    if (sec.id !== secId) return sec
-    const idx = sec.rows.findIndex(r => r.id === rowId)
-    if (idx === -1) return sec
-    const newIdx = idx + dir
-    if (newIdx < 0 || newIdx >= sec.rows.length) return sec
-    const rows = [...sec.rows]
-    ;[rows[idx], rows[newIdx]] = [rows[newIdx], rows[idx]]
-    return { ...sec, rows: rows.map((r, i) => ({ ...r, line: i + 1 })) }
-  })
 }
 
 export function RecipeEditor({
@@ -91,6 +79,7 @@ export function RecipeEditor({
   }
 
   const iconSize = 26
+  const [dragHover, setDragHover] = useState<{ rowId: string; where: 'before' | 'after' } | null>(null)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -164,21 +153,30 @@ export function RecipeEditor({
           </div>
 
           {sec.rows
-            .map((row, ri, all) => (
+            .map((row, ri, all) => {
+              const isHover = dragHover?.rowId === row.id
+              return (
               <div key={row.id}
                 draggable
                 onDragStart={e => {
                   e.dataTransfer.setData('text/plain', JSON.stringify({ secId: sec.id, rowId: row.id }))
                   e.dataTransfer.effectAllowed = 'move'
-                  ;(e.target as HTMLElement).style.opacity = '0.3'
+                  e.currentTarget.style.opacity = '0.3'
                 }}
                 onDragOver={e => {
                   e.preventDefault()
                   e.dataTransfer.dropEffect = 'move'
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const y = e.clientY - rect.top
+                  setDragHover({ rowId: row.id, where: y < rect.height / 2 ? 'before' : 'after' })
+                }}
+                onDragLeave={e => {
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return
+                  setDragHover(h => h?.rowId === row.id ? null : h)
                 }}
                 onDrop={e => {
                   e.preventDefault()
-                  ;((e.target as HTMLElement).closest('[draggable]') as HTMLElement | null)?.style.removeProperty('opacity')
+                  setDragHover(null)
                   try {
                     const data = JSON.parse(e.dataTransfer.getData('text/plain'))
                     if (data.secId !== sec.id || data.rowId === row.id) return
@@ -194,8 +192,17 @@ export function RecipeEditor({
                     }))
                   } catch {}
                 }}
-                onDragEnd={e => (e.target as HTMLElement).style.removeProperty('opacity')}
-                style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}
+                onDragEnd={e => {
+                  e.currentTarget.style.removeProperty('opacity')
+                  setDragHover(null)
+                }}
+                style={{
+                  display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
+                  borderTop: isHover && dragHover?.where === 'before' ? `2px solid ${C.sage}` : '2px solid transparent',
+                  borderBottom: isHover && dragHover?.where === 'after' ? `2px solid ${C.sage}` : 'none',
+                  transition: 'border-color 0.1s',
+                  position: 'relative',
+                }}
               >
                 <div style={{
                   cursor: 'grab', color: C.mutedLight, fontSize: 14, lineHeight: 1,
@@ -255,7 +262,8 @@ export function RecipeEditor({
                   x
                 </button>
               </div>
-            ))}
+            )
+            })}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <input
