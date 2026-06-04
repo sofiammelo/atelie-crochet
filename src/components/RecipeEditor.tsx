@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { C, S, fonts } from '@/lib/tokens'
 
 export type RecipeRow = {
@@ -79,7 +79,11 @@ export function RecipeEditor({
   }
 
   const iconSize = 26
-  const [dragHover, setDragHover] = useState<{ rowId: string; where: 'before' | 'after' } | null>(null)
+  const rowEls = useRef<Map<string, HTMLDivElement> >(new Map())
+  const draggedId = useRef<string | null>(null)
+  function clearHover() {
+    rowEls.current.forEach(el => { el.style.borderTop = ''; el.style.borderBottom = '' })
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -153,12 +157,12 @@ export function RecipeEditor({
           </div>
 
           {sec.rows
-            .map((row, ri, all) => {
-              const isHover = dragHover?.rowId === row.id
-              return (
+            .map((row, ri) => (
               <div key={row.id}
                 draggable
+                ref={el => { if (el) rowEls.current.set(row.id, el); else rowEls.current.delete(row.id) }}
                 onDragStart={e => {
+                  draggedId.current = row.id
                   e.dataTransfer.setData('text/plain', JSON.stringify({ secId: sec.id, rowId: row.id }))
                   e.dataTransfer.effectAllowed = 'move'
                   e.currentTarget.style.opacity = '0.3'
@@ -168,15 +172,19 @@ export function RecipeEditor({
                   e.dataTransfer.dropEffect = 'move'
                   const rect = e.currentTarget.getBoundingClientRect()
                   const y = e.clientY - rect.top
-                  setDragHover({ rowId: row.id, where: y < rect.height / 2 ? 'before' : 'after' })
+                  const where = y < rect.height / 2 ? 'before' : 'after'
+                  clearHover()
+                  const el = e.currentTarget
+                  el.style.borderTop = where === 'before' ? `2px solid ${C.sage}` : '2px solid transparent'
+                  el.style.borderBottom = where === 'after' ? `2px solid ${C.sage}` : 'none'
                 }}
                 onDragLeave={e => {
                   if (e.currentTarget.contains(e.relatedTarget as Node)) return
-                  setDragHover(h => h?.rowId === row.id ? null : h)
+                  clearHover()
                 }}
                 onDrop={e => {
                   e.preventDefault()
-                  setDragHover(null)
+                  clearHover()
                   try {
                     const data = JSON.parse(e.dataTransfer.getData('text/plain'))
                     if (data.secId !== sec.id || data.rowId === row.id) return
@@ -194,15 +202,10 @@ export function RecipeEditor({
                 }}
                 onDragEnd={e => {
                   e.currentTarget.style.removeProperty('opacity')
-                  setDragHover(null)
+                  clearHover()
+                  draggedId.current = null
                 }}
-                style={{
-                  display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
-                  borderTop: isHover && dragHover?.where === 'before' ? `2px solid ${C.sage}` : '2px solid transparent',
-                  borderBottom: isHover && dragHover?.where === 'after' ? `2px solid ${C.sage}` : 'none',
-                  transition: 'border-color 0.1s',
-                  position: 'relative',
-                }}
+                style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}
               >
                 <div style={{
                   cursor: 'grab', color: C.mutedLight, fontSize: 14, lineHeight: 1,
@@ -263,7 +266,7 @@ export function RecipeEditor({
                 </button>
               </div>
             )
-            })}
+            )}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <input
