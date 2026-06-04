@@ -79,10 +79,14 @@ export function RecipeEditor({
   }
 
   const iconSize = 26
-  const rowEls = useRef<Map<string, HTMLDivElement> >(new Map())
-  const draggedId = useRef<string | null>(null)
-  function clearHover() {
-    rowEls.current.forEach(el => { el.style.borderTop = ''; el.style.borderBottom = '' })
+  const dragged = useRef<{ secId: string; rowId: string } | null>(null)
+  const hoveredEl = useRef<HTMLDivElement | null>(null)
+  function clearRowHover() {
+    if (hoveredEl.current) {
+      hoveredEl.current.style.borderTop = ''
+      hoveredEl.current.style.borderBottom = ''
+      hoveredEl.current = null
+    }
   }
 
   return (
@@ -123,21 +127,37 @@ export function RecipeEditor({
           onDrop={e => {
             e.preventDefault()
             e.currentTarget.style.removeProperty('opacity')
-            try {
-              const data = JSON.parse(e.dataTransfer.getData('text/plain'))
-              if (data.action !== 'section' || data.secId === sec.id) return
-              setSections(s => {
-                const arr = [...s]
-                const from = arr.findIndex(x => x.id === data.secId)
-                if (from === -1) return s
-                const [removed] = arr.splice(from, 1)
-                const to = arr.findIndex(x => x.id === sec.id)
-                arr.splice(to < from ? to : to + 1, 0, removed)
-                return arr
-              })
-            } catch {}
+            clearRowHover()
+            const d = dragged.current
+            if (!d) {
+              try {
+                const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+                if (data?.action === 'section' && data.secId !== sec.id) {
+                  setSections(s => {
+                    const arr = [...s]
+                    const from = arr.findIndex(x => x.id === data.secId)
+                    if (from === -1) return s
+                    const [removed] = arr.splice(from, 1)
+                    const to = arr.findIndex(x => x.id === sec.id)
+                    arr.splice(to < from ? to : to + 1, 0, removed)
+                    return arr
+                  })
+                }
+              } catch {}
+              return
+            }
+            if (d.secId !== sec.id) return
+            setSections(s => s.map(ssec => {
+              if (ssec.id !== sec.id) return ssec
+              const rows = [...ssec.rows]
+              const from = rows.findIndex(r => r.id === d.rowId)
+              if (from === -1) return ssec
+              const [removed] = rows.splice(from, 1)
+              rows.push(removed)
+              return { ...ssec, rows: rows.map((r, i) => ({ ...r, line: i + 1 })) }
+            }))
           }}
-          onDragEnd={e => { e.currentTarget.style.removeProperty('opacity') }}
+          onDragEnd={e => { e.currentTarget.style.removeProperty('opacity'); dragged.current = null }}
           style={{ ...S.card, padding: 16 }}
         >
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
@@ -160,50 +180,47 @@ export function RecipeEditor({
             .map((row, ri) => (
               <div key={row.id}
                 draggable
-                ref={el => { if (el) rowEls.current.set(row.id, el); else rowEls.current.delete(row.id) }}
                 onDragStart={e => {
-                  draggedId.current = row.id
-                  e.dataTransfer.setData('text/plain', JSON.stringify({ secId: sec.id, rowId: row.id }))
+                  dragged.current = { secId: sec.id, rowId: row.id }
+                  e.dataTransfer.setData('text/plain', Date.now().toString())
                   e.dataTransfer.effectAllowed = 'move'
                   e.currentTarget.style.opacity = '0.3'
                 }}
                 onDragOver={e => {
                   e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
+                  clearRowHover()
                   const rect = e.currentTarget.getBoundingClientRect()
                   const y = e.clientY - rect.top
                   const where = y < rect.height / 2 ? 'before' : 'after'
-                  clearHover()
-                  const el = e.currentTarget
-                  el.style.borderTop = where === 'before' ? `2px solid ${C.sage}` : '2px solid transparent'
-                  el.style.borderBottom = where === 'after' ? `2px solid ${C.sage}` : 'none'
+                  e.currentTarget.style.borderTop = where === 'before' ? `2px solid ${C.sage}` : '2px solid transparent'
+                  e.currentTarget.style.borderBottom = where === 'after' ? `2px solid ${C.sage}` : 'none'
+                  hoveredEl.current = e.currentTarget
                 }}
                 onDragLeave={e => {
                   if (e.currentTarget.contains(e.relatedTarget as Node)) return
-                  clearHover()
+                  clearRowHover()
                 }}
                 onDrop={e => {
                   e.preventDefault()
-                  clearHover()
-                  try {
-                    const data = JSON.parse(e.dataTransfer.getData('text/plain'))
-                    if (data.secId !== sec.id || data.rowId === row.id) return
-                    setSections(s => s.map(ssec => {
-                      if (ssec.id !== sec.id) return ssec
-                      const rows = [...ssec.rows]
-                      const from = rows.findIndex(r => r.id === data.rowId)
-                      if (from === -1) return ssec
-                      const [removed] = rows.splice(from, 1)
-                      const to = rows.findIndex(r => r.id === row.id)
-                      rows.splice(to < from ? to : to + 1, 0, removed)
-                      return { ...ssec, rows: rows.map((r, i) => ({ ...r, line: i + 1 })) }
-                    }))
-                  } catch {}
+                  e.stopPropagation()
+                  clearRowHover()
+                  const d = dragged.current
+                  if (!d || d.secId !== sec.id || d.rowId === row.id) return
+                  setSections(s => s.map(ssec => {
+                    if (ssec.id !== sec.id) return ssec
+                    const rows = [...ssec.rows]
+                    const from = rows.findIndex(r => r.id === d.rowId)
+                    if (from === -1) return ssec
+                    const [removed] = rows.splice(from, 1)
+                    const to = rows.findIndex(r => r.id === row.id)
+                    rows.splice(to < from ? to : to + 1, 0, removed)
+                    return { ...ssec, rows: rows.map((r, i) => ({ ...r, line: i + 1 })) }
+                  }))
                 }}
                 onDragEnd={e => {
                   e.currentTarget.style.removeProperty('opacity')
-                  clearHover()
-                  draggedId.current = null
+                  clearRowHover()
+                  dragged.current = null
                 }}
                 style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}
               >
