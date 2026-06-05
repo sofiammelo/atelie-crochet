@@ -51,6 +51,8 @@ export function RecipeEditor({
     recipe.sections?.length > 0 ? recipe.sections : []
   )
   const [newRowText, setNewRowText] = useState<Record<string, string>>({})
+  const [pasteText, setPasteText] = useState('')
+  const [parsingText, setParsingText] = useState(false)
 
   const addSection = () => {
     setSections(s => [...s, {
@@ -122,6 +124,58 @@ export function RecipeEditor({
           placeholder="pb = ponto baixo, aum = aumento, dim = diminuição..."
         />
       </div>
+
+      <details style={{ ...S.card, padding: 14 } as React.CSSProperties}>
+        <summary style={{ fontSize: 13, fontWeight: 600, color: C.sage, cursor: 'pointer', userSelect: 'none' }}>
+          Colar receita pronta
+        </summary>
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <textarea
+            style={{ ...S.input, minHeight: 120, resize: 'vertical', lineHeight: 1.6, fontSize: 13 }}
+            value={pasteText}
+            onChange={e => setPasteText(e.target.value)}
+            placeholder="Cole aqui sua receita (ex: do bloco de notas, WhatsApp, etc.)..."
+          />
+          <button
+            onClick={async () => {
+              const txt = pasteText.trim()
+              if (!txt || parsingText) return
+              setParsingText(true)
+              try {
+                const res = await fetch('/api/parse-pdf', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: txt, type: 'amigurumi' }),
+                })
+                const data = await res.json()
+                if (data.recipe) {
+                  const parsed = JSON.parse(data.recipe)
+                  setTitle(parsed.title || title)
+                  setMaterials(parsed.materials || materials)
+                  setAbbreviations(parsed.abbreviations || abbreviations)
+                  if (parsed.sections?.length > 0) {
+                    setSections(parsed.sections.map((s: any, i: number) => ({
+                      id: `sec-${Date.now()}-${i}`,
+                      name: s.name || 'Seção',
+                      rows: (s.rows || []).map((r: any, j: number) => ({
+                        id: `row-${Date.now()}-${i}-${j}`,
+                        line: j + 1,
+                        instruction: r.instruction || '',
+                        type: r.type || 'instruction',
+                      })),
+                    })))
+                  }
+                }
+              } catch (e) { console.error(e) }
+              setParsingText(false)
+            }}
+            disabled={parsingText}
+            style={{ ...S.btnPrimary, padding: '10px', fontSize: 13, alignSelf: 'flex-start' }}
+          >
+            {parsingText ? 'Processando...' : 'Processar'}
+          </button>
+        </div>
+      </details>
 
       {sections.map(sec => (
         <div key={sec.id}

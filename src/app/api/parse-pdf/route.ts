@@ -447,9 +447,39 @@ Now process this raw text:
 ${text}`
 }
 
+// ── Parse text (used by both PDF upload and text input) ──
+async function parseText(text: string, type: string): Promise<{ recipe: string; diag: string[] }> {
+  const diag: string[] = []
+  if (!text.trim() || !hasRealCrochetText(text)) {
+    diag.push('no crochet text')
+    return { recipe: '', diag }
+  }
+  diag.push('ai attempt')
+  const aiResult = await parseWithAI(text)
+  if (aiResult && !aiResult.startsWith('AI_ERR:')) {
+    diag.push('ai ok')
+    return { recipe: aiResult, diag }
+  }
+  if (aiResult?.startsWith('AI_ERR:')) diag.push('ai err:' + aiResult.replace('AI_ERR:', ''))
+  diag.push('ai fail, using regex')
+  return { recipe: buildRecipe(text, type), diag }
+}
+
 // ── Main ──
 export async function POST(request: NextRequest) {
   try {
+    const contentType = request.headers.get('content-type') || ''
+
+    // JSON input: { text, type }
+    if (contentType.includes('application/json')) {
+      const body = await request.json()
+      const text = body.text || ''
+      const type = body.type || 'amigurumi'
+      const { recipe, diag } = await parseText(text, type)
+      return NextResponse.json({ recipe, text, diag: diag.join(' | ') })
+    }
+
+    // Multipart: PDF file upload
     const formData = await request.formData()
     const file = formData.get('pdf') as File | null
     const type = (formData.get('type') as string) || 'amigurumi'
@@ -489,26 +519,13 @@ export async function POST(request: NextRequest) {
       } catch (e: any) { diag.push('ocr err:' + e?.message?.slice(0, 60)) }
     }
 
-    if (text.trim() && !hasRealCrochetText(text)) {
-      diag.push('failed validation')
-      text = ''
-    }
-
-    // Try AI parsing first (if API key is configured)
     let recipe = ''
     if (text.trim()) {
-      diag.push('ai attempt')
-      const aiResult = await parseWithAI(text)
-      if (aiResult && !aiResult.startsWith('AI_ERR:')) {
-        diag.push('ai ok')
-        recipe = aiResult
-      } else if (aiResult?.startsWith('AI_ERR:')) {
-        diag.push('ai err:' + aiResult.replace('AI_ERR:', ''))
-      }
-      if (!recipe) {
-        diag.push('ai fail, using regex')
-        recipe = buildRecipe(text, type)
-      }
+      const result = await parseText(text, type)
+      recipe = result.recipe
+      diag.push(...result.diag)
+    } else {
+      diag.push('no text extracted')
     }
 
     return NextResponse.json({
@@ -519,7 +536,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     return NextResponse.json({
-      error: 'Erro ao processar PDF: ' + (error?.message || 'erro desconhecido'),
+      error: 'Erro ao processar: ' + (error?.message || 'erro desconhecido'),
     }, { status: 500 })
   }
 }
