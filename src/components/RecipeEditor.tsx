@@ -20,6 +20,7 @@ export type RecipeSection = {
 export type Recipe = {
   title: string
   materials: string
+  abbreviations: string
   sections: RecipeSection[]
   notes?: string[]
   _counter?: number
@@ -27,7 +28,7 @@ export type Recipe = {
 }
 
 export function emptyRecipe(): Recipe {
-  return { title: '', materials: '', sections: [] }
+  return { title: '', materials: '', abbreviations: '', sections: [] }
 }
 
 export function parseRecipe(json: string): Recipe {
@@ -45,6 +46,7 @@ export function RecipeEditor({
 }) {
   const [title, setTitle] = useState(recipe.title || '')
   const [materials, setMaterials] = useState(recipe.materials || '')
+  const [abbreviations, setAbbreviations] = useState(recipe.abbreviations || '')
   const [sections, setSections] = useState<RecipeSection[]>(
     recipe.sections?.length > 0 ? recipe.sections : []
   )
@@ -108,6 +110,16 @@ export function RecipeEditor({
           value={materials}
           onChange={e => setMaterials(e.target.value)}
           placeholder="Fio cru 100g, fio marrom 50g, agulha 3mm, olhos de segurança 12mm, enchimento..."
+        />
+      </div>
+
+      <div>
+        <label style={S.label}>Abreviaturas</label>
+        <textarea
+          style={{ ...S.input, minHeight: 60, resize: 'vertical', lineHeight: 1.6 }}
+          value={abbreviations}
+          onChange={e => setAbbreviations(e.target.value)}
+          placeholder="pb = ponto baixo, aum = aumento, dim = diminuição..."
         />
       </div>
 
@@ -316,7 +328,7 @@ export function RecipeEditor({
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onCancel} style={{ ...S.btnGhost, flex: 1 }}>Cancelar</button>
         <button
-          onClick={() => onSave({ title, materials, sections })}
+          onClick={() => onSave({ title, materials, abbreviations, sections })}
           style={{ ...S.btnPrimary, flex: 2 }}
         >
           Salvar receita

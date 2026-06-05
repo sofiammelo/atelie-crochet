@@ -251,8 +251,10 @@ function parseSections(text: string) {
   const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const lines = filterArtifacts(rawLines)
   const materials: string[] = []
+  const abbreviations: string[] = []
   const sections: { name: string; rows: { instruction: string; type: 'instruction' | 'note' }[] }[] = []
   let inMaterials = false
+  let inAbbreviations = false
 
   // First pass: strip page headers and split lines at section boundaries
   const expanded: string[] = []
@@ -274,6 +276,21 @@ function parseSections(text: string) {
         inMaterials = false
       } else {
         materials.push(line)
+        continue
+      }
+    }
+
+    // Abbreviations detection
+    if (!inAbbreviations && /(?:^|\s)(?:Abreviaturas|Abbreviations|Abreviaciones|Términos|Terminology|Abreviat?)(?:\s|$)/i.test(line)) {
+      inAbbreviations = true
+      abbreviations.push(line)
+      continue
+    }
+    if (inAbbreviations) {
+      if (looksLikeSectionTitle(line) || ROUND_RE.test(line)) {
+        inAbbreviations = false
+      } else {
+        abbreviations.push(line)
         continue
       }
     }
@@ -320,16 +337,17 @@ function parseSections(text: string) {
     }
   }
 
-  return { materials, sections: merged }
+  return { materials, abbreviations, sections: merged }
 }
 
 function buildRecipe(text: string, type: string) {
   if (type !== 'amigurumi') return ''
   if (!text.trim()) return ''
-  const { materials, sections } = parseSections(text)
+  const { materials, abbreviations, sections } = parseSections(text)
   const recipe: any = {
     title: '',
     materials: materials.join('\n'),
+    abbreviations: abbreviations.join('\n'),
     sections: sections.map((s, i) => ({
       id: `sec-${i}`,
       name: s.name,
@@ -387,6 +405,7 @@ function buildPrompt(text: string): string {
 {
   "title": string,
   "materials": string,
+  "abbreviations": string,
   "sections": [
     {
       "name": string,
@@ -401,6 +420,8 @@ RULES (follow strictly):
 1. REMOVE ALL promotional/copyright text: Instagram handles, website URLs, discount offers, "follow me", "DM me", "thank you for purchasing", "support me", copyright notices, "all rights reserved", "do not duplicate", "personal use only", PDF metadata, page numbers, headers/footers. This is IRRELEVANT and must be DISCARDED.
 
 2. MATERIALS: List each item on its own line. Include yarn colors, hook sizes, safety eyes, stuffing, needles, etc. Do NOT include the artist's yarn brand pitch or size notes.
+
+2b. ABBREVIATIONS: Extract the abbreviations/terminology section if present (common headers: "Abreviaturas", "Abbreviations", "Abreviaciones", "Términos", "Terminology"). List each abbreviation on its own line like "pb = punto bajo (sc)", "aum = aumento (inc)". If no separate abbreviations section exists, leave as empty string.
 
 3. SECTIONS: Detect each pattern section. ANY line that names a body part, feature, or step to be made should start a NEW section — examples: HEAD, BODY, ARMS, LEGS, HAIR BASE, OUTER, POCKETS, ASSEMBLY, but also Branco dos olhos, Sobrancelhas, Nariz, Expressão, Orelhas, Barba, Bigode, Cabelo, Túnica, Manto, Sandálias, Mangas. If it reads like a sub-heading, make it a section. Do NOT bury sub-headings as notes inside another section.
 

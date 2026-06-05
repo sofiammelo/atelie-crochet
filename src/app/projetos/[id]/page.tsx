@@ -216,6 +216,16 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                   )}
+                  {recipe.abbreviations && (
+                    <div style={{ ...S.card, padding: 16, marginBottom: 16, background: `${C.info}08`, border: `1px solid ${C.info}25` } as React.CSSProperties}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.info, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                        Abreviaturas
+                      </div>
+                      <div style={{ fontSize: 13, color: C.inkLight, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                        {recipe.abbreviations}
+                      </div>
+                    </div>
+                  )}
                   {recipe.notes && recipe.notes.length > 0 && (
                     <div style={{ ...S.card, padding: 16, marginBottom: 16, background: `${C.info}0a`, border: `1px solid ${C.info}30` } as React.CSSProperties}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.info, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
