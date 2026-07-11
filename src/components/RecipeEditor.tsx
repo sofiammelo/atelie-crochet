@@ -32,7 +32,15 @@ export function emptyRecipe(): Recipe {
 }
 
 export function parseRecipe(json: string): Recipe {
-  try { return JSON.parse(json) } catch { return emptyRecipe() }
+  try {
+    const r: Recipe = JSON.parse(json)
+    r.sections = (r.sections || []).map((s, i) => ({
+      ...s,
+      id: s.id || `sec-${i}`,
+      rows: (s.rows || []).map((row, j) => ({ ...row, id: row.id || `row-${i}-${j}` })),
+    }))
+    return r
+  } catch { return emptyRecipe() }
 }
 
 export function RecipeEditor({
