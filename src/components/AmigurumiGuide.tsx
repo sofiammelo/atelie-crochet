@@ -12,7 +12,9 @@ export function AmigurumiGuide({
   onUpdateProgress: (progress: Record<string, number>) => void
 }) {
   const sections = recipe.sections || []
-  const [sectionIdx, setSectionIdx] = useState(0)
+  const savedId = (recipe._progress as any)?._activeSec
+  const initialIdx = savedId ? Math.max(0, sections.findIndex(s => s.id === savedId)) : 0
+  const [sectionIdx, setSectionIdx] = useState(initialIdx)
   const rowRefs = useRef<(HTMLDivElement | null)[]>([])
 
   const sec = sections[sectionIdx]
@@ -46,7 +48,7 @@ export function AmigurumiGuide({
           {sections.map((s, i) => (
             <button
               key={s.id}
-              onClick={() => { setSectionIdx(i) }}
+              onClick={() => { setSectionIdx(i); onUpdateProgress({ ...progress, _activeSec: s.id } as any) }}
               style={{
                 padding: '8px 18px', borderRadius: 20, whiteSpace: 'nowrap',
                 border: `1.5px solid ${i === sectionIdx ? C.sage : C.creamDark}`,
@@ -163,7 +165,11 @@ export function AmigurumiGuide({
           </div>
           {sectionIdx < sections.length - 1 && (
             <button
-              onClick={() => { setSectionIdx(sectionIdx + 1) }}
+              onClick={() => {
+                const next = sectionIdx + 1
+                setSectionIdx(next)
+                if (sections[next]) onUpdateProgress({ ...progress, _activeSec: sections[next].id } as any)
+              }}
               style={{ ...S.btnPrimary, marginTop: 12, background: C.success }}
             >
               Próxima seção &rarr;
